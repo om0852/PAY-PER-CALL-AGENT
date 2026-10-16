@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { recoverTypedDataAddress, parseSignature, Hex, createPublicClient, createWalletClient, http } from "viem";
+import { recoverTypedDataAddress, parseSignature, Hex, createPublicClient, createWalletClient, http, fallback } from "viem";
 import { baseSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { PaymentAuthorization } from "./types";
@@ -85,7 +85,11 @@ export const USDC_ABI = [
 export function getPublicClient() {
   return createPublicClient({
     chain: baseSepolia,
-    transport: http(process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org"),
+    transport: fallback([
+      http(process.env.BASE_SEPOLIA_RPC_URL || "https://base-sepolia-rpc.publicnode.com", { timeout: 5000 }),
+      http("https://base-sepolia.blockpi.network/v1/rpc/public", { timeout: 5000 }),
+      http("https://sepolia.base.org", { timeout: 5000 }),
+    ]),
   });
 }
 
@@ -100,7 +104,11 @@ export function getRelayerWalletClient() {
   return createWalletClient({
     account,
     chain: baseSepolia,
-    transport: http(process.env.BASE_SEPOLIA_RPC_URL || "https://sepolia.base.org"),
+    transport: fallback([
+      http(process.env.BASE_SEPOLIA_RPC_URL || "https://base-sepolia-rpc.publicnode.com", { timeout: 5000 }),
+      http("https://base-sepolia.blockpi.network/v1/rpc/public", { timeout: 5000 }),
+      http("https://sepolia.base.org", { timeout: 5000 }),
+    ]),
   });
 }
 
