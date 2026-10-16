@@ -187,7 +187,7 @@ async function sweepAndReserveBudget(taskId: string, price: number, limit: numbe
         },
       },
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   return { success: !!updated, reservationId };
@@ -574,7 +574,7 @@ export async function runBuyerAgent(
       reserved: 0,
       activeReservations: [],
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   );
 
   // Generate Plan

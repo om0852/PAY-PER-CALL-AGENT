@@ -34,7 +34,7 @@ export async function ensureSeededData() {
         label: "Primary Buyer Agent",
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   // 2. Ensure Facilitator & Seller Wallets

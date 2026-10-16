@@ -83,7 +83,7 @@ export async function settlePayment(req: SettleRequest): Promise<SettleResponse>
   const buyer = await Wallet.findOneAndUpdate(
     { address: from, balance: { $gte: auth.value } },
     { $inc: { balance: -auth.value } },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!buyer) {
@@ -93,7 +93,7 @@ export async function settlePayment(req: SettleRequest): Promise<SettleResponse>
   await Wallet.findOneAndUpdate(
     { address: to },
     { $inc: { balance: auth.value } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
   );
 
   // 3. Mark authorization as settled
