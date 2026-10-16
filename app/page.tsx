@@ -4212,34 +4212,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   </div>
                 </div>
 
-                {/* Interactive Hover Tooltip Box */}
-                {chartHoveredBucket !== null && hourlyBuckets[chartHoveredBucket] && (
-                  <div className="mb-2 p-2.5 rounded-xl bg-[#fbf9f6] border border-[#d4af37]/40 shadow-sm flex items-center justify-between flex-wrap gap-2 text-xs animate-fade-in">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#d4af37]"></span>
-                      <span className="font-bold text-[#1b1c1a]">
-                        Window: {hourlyBuckets[chartHoveredBucket].label} ({hourlyBuckets[chartHoveredBucket].fullLabel})
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 font-mono text-[11px]">
-                      <span>
-                        Calls: <strong className="text-[#1b1c1a]">{hourlyBuckets[chartHoveredBucket].calls}</strong> ({hourlyBuckets[chartHoveredBucket].settled} settled)
-                      </span>
-                      <span>
-                        Volume: <strong className="text-emerald-700">+${hourlyBuckets[chartHoveredBucket].volumeUsdc} USDC</strong>
-                      </span>
-                      <span>
-                        Latency: <strong className="text-[#10b981]">{hourlyBuckets[chartHoveredBucket].avgLatency}ms</strong>
-                      </span>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded font-sans">
-                        100% Gasless
-                      </span>
-                    </div>
-                  </div>
-                )}
-
                 {/* Dynamic Responsive SVG Visualization */}
-                <div className="w-full py-3 relative">
+                <div className="w-full py-2 relative">
                   <svg className="w-full h-44 overflow-visible" fill="none" viewBox="0 0 760 170" xmlns="http://www.w3.org/2000/svg">
                     <defs>
                       <linearGradient id="goldBarGrad" x1="0" y1="0" x2="0" y2="1">
@@ -4394,7 +4368,82 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                         </g>
                       );
                     })()}
+
+                    {/* Floating In-Chart Tooltip Pill (pointer-events-none completely prevents mouse jitter) */}
+                    {chartHoveredBucket !== null && hourlyBuckets[chartHoveredBucket] && (() => {
+                      const bucket = hourlyBuckets[chartHoveredBucket];
+                      const x = 65 + chartHoveredBucket * 67 + 16;
+                      const tooltipWidth = 150;
+                      const tooltipX = Math.max(10, Math.min(760 - tooltipWidth - 10, x - tooltipWidth / 2));
+                      return (
+                        <g pointerEvents="none" className="transition-all duration-150">
+                          <rect
+                            x={tooltipX}
+                            y={14}
+                            width={tooltipWidth}
+                            height={26}
+                            rx={6}
+                            fill="#1b1c1a"
+                            fillOpacity="0.95"
+                            stroke="#d4af37"
+                            strokeWidth="1"
+                          />
+                          <text
+                            x={tooltipX + tooltipWidth / 2}
+                            y={31}
+                            fill="#ffffff"
+                            fontSize="10"
+                            fontWeight="bold"
+                            fontFamily="Plus Jakarta Sans"
+                            textAnchor="middle"
+                          >
+                            {bucket.calls} calls • {bucket.avgLatency}ms • +${bucket.volumeUsdc}
+                          </text>
+                        </g>
+                      );
+                    })()}
                   </svg>
+                </div>
+
+                {/* Fixed-Height Bottom Interactive Info Bar (Zero Layout Shift) */}
+                <div className="w-full min-h-[46px] my-2 flex items-center">
+                  {chartHoveredBucket !== null && hourlyBuckets[chartHoveredBucket] ? (
+                    <div className="w-full p-2.5 rounded-xl bg-[#fbf9f6] border border-[#d4af37]/50 shadow-sm flex items-center justify-between flex-wrap gap-2 text-xs transition-all animate-fade-in">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#d4af37] animate-pulse"></span>
+                        <span className="font-bold text-[#1b1c1a]">
+                          Window: {hourlyBuckets[chartHoveredBucket].label} ({hourlyBuckets[chartHoveredBucket].fullLabel})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 font-mono text-[11px] flex-wrap">
+                        <span>
+                          Calls: <strong className="text-[#1b1c1a]">{hourlyBuckets[chartHoveredBucket].calls}</strong> ({hourlyBuckets[chartHoveredBucket].settled} settled)
+                        </span>
+                        <span>
+                          Volume: <strong className="text-emerald-700 font-bold">+${hourlyBuckets[chartHoveredBucket].volumeUsdc} USDC</strong>
+                        </span>
+                        <span>
+                          Latency: <strong className="text-[#10b981] font-bold">{hourlyBuckets[chartHoveredBucket].avgLatency}ms</strong>
+                        </span>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded font-sans">
+                          100% Gasless
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full p-2.5 rounded-xl bg-[#f5f3f0]/70 border border-[#d0c5af]/30 flex items-center justify-between flex-wrap gap-2 text-xs text-[#5b5e66] transition-all">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="font-semibold text-[#1b1c1a]">Telemetry Sentinel Active</span>
+                        <span className="text-[11px] text-[#5b5e66]">• 10 Time Windows Monitored</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-[11px] font-mono flex-wrap">
+                        <span>Peak: <strong className="text-[#1b1c1a] font-sans">{maxHourlyCalls} calls/hr</strong></span>
+                        <span>Median Latency: <strong className="text-[#735c00] font-sans">{medianLatency}ms</strong></span>
+                        <span className="text-[#5b5e66] font-sans text-[10px]">Hover any interval bar for granular SLA receipts</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Protocol breakdown pill footer */}
@@ -4465,26 +4514,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                     </div>
                   </div>
 
-                  {/* Hovered point tooltip */}
-                  {chartHoveredCumulative !== null && cumulativeProgression[chartHoveredCumulative] && (
-                    <div className="my-2 p-2 rounded-lg bg-[#f5f3f0] border border-emerald-300 flex items-center justify-between text-xs animate-fade-in font-mono">
-                      <span className="font-bold text-[#1b1c1a] font-sans">
-                        Milestone: {cumulativeProgression[chartHoveredCumulative].label}
-                      </span>
-                      <span className="text-emerald-700 font-bold">
-                        Seller Inbound: +${cumulativeProgression[chartHoveredCumulative].sellerCreditedUsdc} USDC
-                      </span>
-                      <span className="text-blue-700 font-bold">
-                        Buyer Outflow: -${cumulativeProgression[chartHoveredCumulative].buyerDebitedUsdc} USDC
-                      </span>
-                      <span className="text-[#5b5e66] font-sans text-[10px]">
-                        Gas Saved: {cumulativeProgression[chartHoveredCumulative].gasSavedGwei} Gwei
-                      </span>
-                    </div>
-                  )}
-
                   {/* Dynamic Area SVG */}
-                  <div className="w-full py-3">
+                  <div className="w-full py-2">
                     <svg className="w-full h-40 overflow-visible" fill="none" viewBox="0 0 700 160" xmlns="http://www.w3.org/2000/svg">
                       <defs>
                         <linearGradient id="areaSellerGrad" x1="0" y1="0" x2="0" y2="1">
@@ -4568,10 +4599,82 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                                 </g>
                               );
                             })}
+
+                            {/* Floating In-Chart Tooltip (pointer-events-none prevents mouse jitter) */}
+                            {chartHoveredCumulative !== null && cumulativeProgression[chartHoveredCumulative] && (() => {
+                              const pt = cumulativeProgression[chartHoveredCumulative];
+                              const count = cumulativeProgression.length;
+                              const px = 55 + chartHoveredCumulative * ((670 - 55) / Math.max(1, count - 1));
+                              const tooltipWidth = 160;
+                              const tooltipX = Math.max(10, Math.min(700 - tooltipWidth - 10, px - tooltipWidth / 2));
+                              return (
+                                <g pointerEvents="none" className="transition-all duration-150">
+                                  <rect
+                                    x={tooltipX}
+                                    y={12}
+                                    width={tooltipWidth}
+                                    height={24}
+                                    rx={6}
+                                    fill="#1b1c1a"
+                                    fillOpacity="0.95"
+                                    stroke="#10b981"
+                                    strokeWidth="1"
+                                  />
+                                  <text
+                                    x={tooltipX + tooltipWidth / 2}
+                                    y={28}
+                                    fill="#ffffff"
+                                    fontSize="9.5"
+                                    fontWeight="bold"
+                                    fontFamily="Plus Jakarta Sans"
+                                    textAnchor="middle"
+                                  >
+                                    Seller: +${pt.sellerCreditedUsdc} | Buyer: -${pt.buyerDebitedUsdc}
+                                  </text>
+                                </g>
+                              );
+                            })()}
                           </g>
                         );
                       })()}
                     </svg>
+                  </div>
+
+                  {/* Fixed-Height Bottom Interactive Info Bar (Zero Layout Shift) */}
+                  <div className="w-full min-h-[46px] my-2 flex items-center">
+                    {chartHoveredCumulative !== null && cumulativeProgression[chartHoveredCumulative] ? (
+                      <div className="w-full p-2.5 rounded-xl bg-[#f5f3f0] border border-emerald-300/80 shadow-sm flex items-center justify-between flex-wrap gap-2 text-xs font-mono transition-all animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="font-bold text-[#1b1c1a] font-sans">
+                            Milestone: {cumulativeProgression[chartHoveredCumulative].label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] flex-wrap">
+                          <span className="text-emerald-700 font-bold">
+                            Seller Inbound: +${cumulativeProgression[chartHoveredCumulative].sellerCreditedUsdc} USDC
+                          </span>
+                          <span className="text-blue-700 font-bold">
+                            Buyer Outflow: -${cumulativeProgression[chartHoveredCumulative].buyerDebitedUsdc} USDC
+                          </span>
+                          <span className="text-[#5b5e66] font-sans text-[10px]">
+                            Gas Saved: {cumulativeProgression[chartHoveredCumulative].gasSavedGwei} Gwei
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full p-2.5 rounded-xl bg-[#f5f3f0]/70 border border-[#d0c5af]/30 flex items-center justify-between flex-wrap gap-2 text-xs text-[#5b5e66] transition-all">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                          <span className="font-semibold text-[#1b1c1a]">Macro Settlement Flow Active</span>
+                          <span className="text-[11px] text-[#5b5e66]">• Base Sepolia EIP-3009 Relayed</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-[11px] font-mono flex-wrap">
+                          <span className="text-emerald-700 font-semibold font-sans">100% Relayer Sponsored Gas</span>
+                          <span className="text-[#5b5e66] font-sans text-[10px]">Hover any milestone node for dual-wallet receipts</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
