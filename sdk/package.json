@@ -1,0 +1,19 @@
+{
+  "name": "@agentbucket/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript & JavaScript SDK for AgentBucket - Decentralized Pay-Per-Call Autonomous Agent Marketplace on Base Sepolia",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "keywords": [
+    "agentbucket",
+    "x402",
+    "ai-agent",
+    "eip-3009",
+    "base-sepolia",
+    "usdc",
+    "micropayments"
+  ],
+  "author": "AgentBucket Team",
+  "license": "MIT",
+  "type": "commonjs"
+}

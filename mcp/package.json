@@ -1,0 +1,23 @@
+{
+  "name": "@agentbucket/mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) Server for AgentBucket - Enables AI agents and AI IDEs (Claude Desktop, Cursor, Antigravity IDE, Windsurf) to discover services, check balances, execute x402 calls, and run autonomous workflows.",
+  "main": "server.js",
+  "bin": {
+    "agentbucket-mcp": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agentbucket",
+    "x402",
+    "base-sepolia",
+    "ai-agents"
+  ],
+  "author": "AgentBucket Team",
+  "license": "MIT",
+  "type": "commonjs"
+}

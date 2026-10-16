@@ -57,6 +57,7 @@ import SchemaModal from "@/components/provider/SchemaModal";
 import RegisterServiceModal from "@/components/provider/RegisterServiceModal";
 import ServiceRatingModal from "@/components/provider/ServiceRatingModal";
 import TransactionDetailModal from "@/components/provider/TransactionDetailModal";
+import DeveloperHub from "@/components/developer/DeveloperHub";
 
 interface WalletData {
   _id: string;
@@ -5666,141 +5667,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
         {/* 6. API & WEBHOOKS DEDICATED VIEW */}
         {activeNavTab === "api" && (
-          <div className="flex flex-col gap-6 animate-fade-in">
-            {/* Dedicated Header for API & Webhooks */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#735c00]">
-                    Workspace / API &amp; Webhooks
-                  </span>
-                  <span className="text-[#5b5e66]">•</span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    Gateway Online
-                  </span>
-                </div>
-                <h2 className="text-xl md:text-2xl font-bold text-[#1b1c1a] tracking-tight">
-                  Developer API Gateway &amp; Webhook Documentation
-                </h2>
-                <p className="text-xs text-[#5b5e66]">
-                  Programmatically invoke registered services with HTTP 402 Payment Required headers and EIP-3009 offline vouchers.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 bg-[#f5f3f0] px-3.5 py-2 rounded-lg border border-[#d0c5af]/50 font-mono text-xs">
-                <span className="text-[#5b5e66]">Gateway Endpoint:</span>
-                <span className="text-[#1b1c1a] font-semibold">/api/x402/proxy</span>
-              </div>
-            </div>
-
-            {/* 2-Column Developer Specification */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* cURL Request Card */}
-              <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-bold text-[#1b1c1a] flex items-center gap-2 mb-2">
-                    <FileCode className="w-4 h-4 text-[#735c00]" />
-                    <span>Invoking a Service with HTTP 402 Voucher</span>
-                  </h3>
-                  <p className="text-xs text-[#5b5e66] mb-3">
-                    Send a POST request to the proxy gateway with the service query parameter and the cryptographic authorization header.
-                  </p>
-                  <pre className="bg-[#1b1c1a] text-zinc-300 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-[#d4af37]/30">
-{`curl -X POST "http://localhost:3000/api/x402/proxy?serviceId=books-scraper-pro" \\
-  -H "Content-Type: application/json" \\
-  -H "X-402-Authorization: {
-    \\"from\\": \\"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\\",
-    \\"to\\": \\"0x70997970c51812dc3a010c7d01b50e0d17dc79c8\\",
-    \\"value\\": 10000,
-    \\"validAfter\\": 0,
-    \\"validBefore\\": 1893456000,
-    \\"nonce\\": \\"0xabc123...\\",
-    \\"v\\": 27,
-    \\"r\\": \\"0x...\\",
-    \\"s\\": \\"0x...\\"
-  }" \\
-  -d '{"pages": [1, 2], "filter": "5-stars"}'`}
-                  </pre>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`curl -X POST "http://localhost:3000/api/x402/proxy?serviceId=books-scraper-pro" -H "Content-Type: application/json"`);
-                    triggerToast("cURL snippet copied to clipboard");
-                  }}
-                  className="px-4 py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy cURL Template</span>
-                </button>
-              </div>
-
-              {/* EIP-3009 Typed Data Schema */}
-              <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-bold text-[#1b1c1a] flex items-center gap-2 mb-2">
-                    <ShieldCheck className="w-4 h-4 text-[#735c00]" />
-                    <span>EIP-712 / EIP-3009 Typed Data Structure</span>
-                  </h3>
-                  <p className="text-xs text-[#5b5e66] mb-3">
-                    Wallets sign this typed data structure using eth_signTypedData_v4 for off-chain gasless approval.
-                  </p>
-                  <pre className="bg-[#1b1c1a] text-zinc-300 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-[#d4af37]/30">
-{`{
-  "types": {
-    "TransferWithAuthorization": [
-      { "name": "from", "type": "address" },
-      { "name": "to", "type": "address" },
-      { "name": "value", "type": "uint256" },
-      { "name": "validAfter", "type": "uint256" },
-      { "name": "validBefore", "type": "uint256" },
-      { "name": "nonce", "type": "bytes32" }
-    ]
-  },
-  "domain": {
-    "name": "USD Coin",
-    "version": "2",
-    "chainId": 84532,
-    "verifyingContract": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-  }
-}`}
-                  </pre>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`0x036CbD53842c5426634e7929541eC2318f3dCF7e`);
-                    triggerToast("Base Sepolia USDC Contract copied");
-                  }}
-                  className="px-4 py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copy USDC Contract Address</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Webhook Configuration Card */}
-            <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col gap-4">
-              <div>
-                <h3 className="text-base font-bold text-[#1b1c1a] mb-1">Webhook Notification Relays</h3>
-                <p className="text-xs text-[#5b5e66]">Configure HTTPS callbacks to receive instant event dispatches when micro-settlements are confirmed on Base Sepolia.</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="url"
-                  placeholder="https://your-domain.com/api/agentbucket-webhook"
-                  defaultValue="https://node.internal/hooks/settlement"
-                  className="flex-1 bg-[#f5f3f0] border border-[#d0c5af]/50 rounded-xl px-4 py-2.5 text-xs text-[#1b1c1a] focus:outline-none focus:ring-1 focus:ring-[#735c00]"
-                />
-                <button
-                  onClick={() => triggerToast("Webhook ping sent! HTTP 200 OK received.")}
-                  className="px-5 py-2.5 bg-[#d4af37] text-[#554300] font-bold text-xs rounded-xl shadow-sm hover:brightness-105 transition-all"
-                >
-                  Test Webhook Ping
-                </button>
-              </div>
-            </div>
-          </div>
+          <DeveloperHub triggerToast={triggerToast} />
         )}
       </div>
     </main>

@@ -1,0 +1,18 @@
+{
+  "name": "@agentbucket/cli",
+  "version": "1.0.0",
+  "description": "AgentBucket Command Line Interface (CLI) - Interact with x402 AI services, autonomous agents, and Base Sepolia settlements directly from your terminal.",
+  "bin": {
+    "agentbucket": "./bin/agentbucket.js"
+  },
+  "keywords": [
+    "agentbucket",
+    "cli",
+    "x402",
+    "base-sepolia",
+    "ai-agents"
+  ],
+  "author": "AgentBucket Team",
+  "license": "MIT",
+  "type": "commonjs"
+}
