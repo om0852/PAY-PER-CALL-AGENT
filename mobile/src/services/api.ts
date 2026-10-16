@@ -3,8 +3,8 @@
  * Interacts with Next.js x402 Backend & Base Sepolia Relayer
  */
 
-// Replace with your local machine's IP (e.g. http://192.168.1.10:3000) when running on a physical phone
-export const API_BASE_URL = "http://localhost:3000";
+// Your local Wi-Fi IP address so physical phones running Expo Go can communicate with the Next.js server
+export const API_BASE_URL = "http://10.44.236.219:3000";
 
 export interface MobileDashboardData {
   network: string;
