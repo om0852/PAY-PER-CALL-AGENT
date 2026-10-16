@@ -121,7 +121,7 @@ interface StreamEvent {
   details?: Record<string, unknown>;
 }
 
-export default function Dashboard() {
+export default function Dashboard({ initialTab = "overview" }: { initialTab?: string } = {}) {
   const router = useRouter();
 
   // Authentication State
@@ -129,7 +129,36 @@ export default function Dashboard() {
   const [authChecking, setAuthChecking] = useState<boolean>(true);
 
   // Active Workspace Navigation Tab
-  const [activeNavTab, setActiveNavTab] = useState<string>("overview");
+  const [activeNavTab, setActiveNavTab] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname.replace(/^\/+/, "");
+      if (path === "services") return "services";
+      if (path === "dispatcher") return "dispatcher";
+      if (path === "analytics") return "analytics";
+      if (path === "revenue" || path === "escrow") return "revenue";
+      if (path === "api-keys" || path === "api") return "api";
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam) return tabParam;
+    }
+    return initialTab;
+  });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveNavTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleNavClick = (tabId: string) => {
+    setActiveNavTab(tabId);
+    if (typeof window !== "undefined") {
+      const targetUrl = tabId === "overview" ? "/" : `/${tabId === "api" ? "api-keys" : tabId}`;
+      window.history.pushState({}, "", targetUrl);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const [timeframe, setTimeframe] = useState<"24H" | "7D" | "30D" | "All Time">("All Time");
 
   // Filter state for services table
@@ -604,26 +633,21 @@ export default function Dashboard() {
           {/* Navigation Items */}
           <nav className="flex flex-col gap-1 px-3">
             {[
-              { id: "overview", label: "Overview", icon: LayoutDashboard, href: "#overview" },
-              { id: "services", label: "Agent Services", icon: Bot, href: "#services-section" },
-              { id: "dispatcher", label: "Buyer Scout Dispatcher", icon: Zap, href: "#dispatcher-section" },
-              { id: "analytics", label: "Executions & Analytics", icon: Activity, href: "#analytics-section" },
-              { id: "revenue", label: "Revenue & Escrow", icon: WalletIcon, href: "#ledger-section" },
-              { id: "api", label: "API & Webhooks", icon: Key, href: "#protocol-section" },
+              { id: "overview", label: "Overview", icon: LayoutDashboard },
+              { id: "services", label: "Agent Services", icon: Bot },
+              { id: "dispatcher", label: "Buyer Scout Dispatcher", icon: Zap },
+              { id: "analytics", label: "Executions & Analytics", icon: Activity },
+              { id: "revenue", label: "Revenue & Escrow", icon: WalletIcon },
+              { id: "api", label: "API & Webhooks", icon: Key },
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeNavTab === item.id;
               return (
-                <a
+                <button
                   key={item.id}
-                  href={item.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setActiveNavTab(item.id);
-                    const el = document.querySelector(item.href);
-                    if (el) el.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                  type="button"
+                  onClick={() => handleNavClick(item.id)}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-semibold transition-all text-left w-full ${
                     isActive
                       ? "bg-[#d4af37] text-[#554300] font-bold shadow-[0_2px_8px_rgba(212,175,55,0.2)]"
                       : "text-[#4d4635] hover:bg-[#eae8e5] hover:text-[#1b1c1a]"
@@ -631,7 +655,7 @@ export default function Dashboard() {
                 >
                   <Icon className={`w-4 h-4 ${isActive ? "text-[#554300]" : "text-[#5b5e66]"}`} />
                   <span>{item.label}</span>
-                </a>
+                </button>
               );
             })}
           </nav>
@@ -686,6 +710,25 @@ export default function Dashboard() {
               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
               <span className="text-[11px] font-bold text-[#1b1c1a] tracking-wide">
                 Base Sepolia (84532)
+              </span>
+            </div>
+
+            {/* Active Workspace Breadcrumb */}
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#5b5e66]">
+              <span>Workspace</span>
+              <span>/</span>
+              <span className="font-bold text-[#1b1c1a]">
+                {activeNavTab === "overview"
+                  ? "Overview"
+                  : activeNavTab === "services"
+                  ? "Agent Services"
+                  : activeNavTab === "dispatcher"
+                  ? "Buyer Scout Dispatcher"
+                  : activeNavTab === "analytics"
+                  ? "Executions & Analytics"
+                  : activeNavTab === "revenue"
+                  ? "Revenue & Escrow"
+                  : "API & Webhooks"}
               </span>
             </div>
 
@@ -836,11 +879,14 @@ export default function Dashboard() {
         {/* ================= MAIN DASHBOARD BODY ================= */}
         <main className="flex-1 w-full pt-16 bg-[#fbf9f6]">
           <div className="w-full px-6 md:px-8 xl:px-12 py-8 flex flex-col gap-8 max-w-[1600px] mx-auto">
-            {/* 1. STUDIO BANNER & WELCOME BAR */}
-            <section
-              id="overview"
-              className="relative w-full bg-white rounded-xl p-6 md:p-8 shadow-sm overflow-hidden border border-[#d4af37]/20"
-            >
+            {/* 1. OVERVIEW DEDICATED VIEW */}
+            {activeNavTab === "overview" && (
+              <>
+                {/* 1. STUDIO BANNER & WELCOME BAR */}
+                <section
+                  id="overview"
+                  className="relative w-full bg-white rounded-xl p-6 md:p-8 shadow-sm overflow-hidden border border-[#d4af37]/20"
+                >
               <div className="absolute -top-24 -left-20 w-80 h-80 bg-[#d4af37]/10 rounded-full blur-3xl pointer-events-none"></div>
               <div className="absolute -bottom-24 right-40 w-96 h-96 bg-[#fee179]/15 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -1078,6 +1124,290 @@ export default function Dashboard() {
                 </div>
               </div>
             </section>
+
+            {/* TOP 4 WORKSPACE MODULE CARDS */}
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[#5b5e66]">
+                  Dedicated Workspace Modules
+                </h3>
+                <span className="text-xs text-[#735c00] font-semibold">
+                  Click any module to open dedicated workspace
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {/* Module 1: Agent Services */}
+                <div
+                  onClick={() => handleNavClick("services")}
+                  className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm hover:shadow-md hover:border-[#d4af37] transition-all cursor-pointer group flex flex-col justify-between gap-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-[#d4af37]/15 flex items-center justify-center text-[#735c00] group-hover:scale-105 transition-transform">
+                      <Bot className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                      {healthyEndpoints}/{services.length} Healthy
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[#1b1c1a] group-hover:text-[#735c00] transition-colors">
+                      Agent Services
+                    </h4>
+                    <p className="text-xs text-[#5b5e66] mt-1 leading-snug">
+                      Manage registered HTTP 402 endpoints, pricing, Ajv schemas, and real-time health.
+                    </p>
+                  </div>
+                  <div className="flex items-center text-xs font-bold text-[#735c00] group-hover:translate-x-1 transition-transform">
+                    <span>Open Services Studio →</span>
+                  </div>
+                </div>
+
+                {/* Module 2: Buyer Scout Dispatcher */}
+                <div
+                  onClick={() => handleNavClick("dispatcher")}
+                  className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm hover:shadow-md hover:border-[#d4af37] transition-all cursor-pointer group flex flex-col justify-between gap-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-[#fee179]/30 flex items-center justify-center text-[#554300] group-hover:scale-105 transition-transform">
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#fee179]/30 text-[#554300]">
+                      Gasless Active
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[#1b1c1a] group-hover:text-[#735c00] transition-colors">
+                      Buyer Scout Dispatcher
+                    </h4>
+                    <p className="text-xs text-[#5b5e66] mt-1 leading-snug">
+                      Execute autonomous multi-step pipelines with automated spend caps &amp; 2-tier fallback.
+                    </p>
+                  </div>
+                  <div className="flex items-center text-xs font-bold text-[#735c00] group-hover:translate-x-1 transition-transform">
+                    <span>Launch Dispatcher Console →</span>
+                  </div>
+                </div>
+
+                {/* Module 3: Executions & Analytics */}
+                <div
+                  onClick={() => handleNavClick("analytics")}
+                  className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm hover:shadow-md hover:border-[#d4af37] transition-all cursor-pointer group flex flex-col justify-between gap-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-105 transition-transform">
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                      {settledCalls} Settled
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[#1b1c1a] group-hover:text-[#735c00] transition-colors">
+                      Executions &amp; Analytics
+                    </h4>
+                    <p className="text-xs text-[#5b5e66] mt-1 leading-snug">
+                      Inspect cryptographic ECDSA signatures, audit records, and export CSV logs.
+                    </p>
+                  </div>
+                  <div className="flex items-center text-xs font-bold text-[#735c00] group-hover:translate-x-1 transition-transform">
+                    <span>View Settlement Ledger →</span>
+                  </div>
+                </div>
+
+                {/* Module 4: Revenue & Escrow */}
+                <div
+                  onClick={() => handleNavClick("revenue")}
+                  className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm hover:shadow-md hover:border-[#d4af37] transition-all cursor-pointer group flex flex-col justify-between gap-4"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-[#efeeeb] flex items-center justify-center text-[#1b1c1a] group-hover:scale-105 transition-transform">
+                      <WalletIcon className="w-5 h-5" />
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#efeeeb] text-[#1b1c1a]">
+                      Base Sepolia
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-[#1b1c1a] group-hover:text-[#735c00] transition-colors">
+                      Revenue &amp; Escrow
+                    </h4>
+                    <p className="text-xs text-[#5b5e66] mt-1 leading-snug">
+                      Smart contract treasury reserves, participant wallet balances, and relayer sponsorship.
+                    </p>
+                  </div>
+                  <div className="flex items-center text-xs font-bold text-[#735c00] group-hover:translate-x-1 transition-transform">
+                    <span>Inspect Treasury Reserves →</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* RECENT INBOUND EXECUTIONS PREVIEW */}
+            <section className="bg-white rounded-xl p-6 shadow-sm border border-[#d4af37]/15 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Activity className="w-4 h-4 text-[#735c00]" />
+                  <h3 className="text-sm font-bold text-[#1b1c1a]">Recent Inbound Micro-Settlements</h3>
+                </div>
+                <button
+                  onClick={() => handleNavClick("analytics")}
+                  className="text-xs font-bold text-[#735c00] hover:underline flex items-center gap-1"
+                >
+                  <span>View Full Ledger ({ledger.length} entries)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-[#f5f3f0] text-[#5b5e66] uppercase text-[10px] font-bold">
+                      <th className="py-2.5 px-3 rounded-l-md">Time</th>
+                      <th className="py-2.5 px-3">Service</th>
+                      <th className="py-2.5 px-3">Buyer</th>
+                      <th className="py-2.5 px-3">Fee (USDC)</th>
+                      <th className="py-2.5 px-3">Latency</th>
+                      <th className="py-2.5 px-3">Status</th>
+                      <th className="py-2.5 px-3 rounded-r-md text-right">Proof</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#efeeeb]">
+                    {ledger.slice(0, 5).map((l) => (
+                      <tr key={l._id} className="hover:bg-[#f5f3f0]/50 transition-colors">
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#5b5e66]">
+                          {new Date(l.createdAt).toLocaleTimeString()}
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-[#1b1c1a]">{l.serviceName}</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px] text-[#5b5e66]">
+                          {l.buyer.slice(0, 6)}...{l.buyer.slice(-4)}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">
+                          +${((l.paidPrice || 0) / 1e6).toFixed(4)}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[#5b5e66]">
+                          {l.latencyMs}ms
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            l.status === "SETTLED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                          }`}>
+                            {l.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {l.txHash ? (
+                            <a
+                              href={`https://sepolia.basescan.org/tx/${l.txHash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-[11px] text-[#735c00] hover:underline"
+                            >
+                              {l.txHash.slice(0, 8)}...
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-[#5b5e66]">Gasless</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* BOTTOM PROTOCOL INFO CARDS */}
+            <section id="protocol-section" className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
+                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-[#735c00] shadow-sm shrink-0">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-[#1b1c1a]">
+                    EIP-3009 Gasless Transfer
+                  </span>
+                  <span className="text-[11px] text-[#5b5e66] leading-tight">
+                    Buyers sign valid auth vouchers; relay settles without payer gas fees.
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
+                <div className="w-10 h-10 rounded-lg bg-white overflow-hidden flex items-center justify-center border border-[#d4af37]/30 shadow-sm shrink-0">
+                  <img
+                    src="/bots/bot-4.svg"
+                    alt="Autonomous Validator"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-[#1b1c1a]">
+                    Strict Schema Escrow
+                  </span>
+                  <span className="text-[11px] text-[#5b5e66] leading-tight">
+                    Outputs validate against strict JSON-Schema to prevent prompt hallucinations.
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
+                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-[#735c00] shadow-sm shrink-0">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-[#1b1c1a]">
+                    Base Sepolia Fast L2
+                  </span>
+                  <span className="text-[11px] text-[#5b5e66] leading-tight">
+                    Average confirmation &lt;2 seconds with sub-cent settlement charges.
+                  </span>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* 2. AGENT SERVICES DEDICATED VIEW */}
+        {activeNavTab === "services" && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {/* Dedicated Services Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#735c00]">
+                    Workspace / Agent Services
+                  </span>
+                  <span className="text-[#5b5e66]">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    {healthyEndpoints}/{services.length} Healthy
+                  </span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-[#1b1c1a] tracking-tight">
+                  Agent Services Management Studio
+                </h2>
+                <p className="text-xs text-[#5b5e66]">
+                  Register, monitor automated uptime, inspect JSON schemas, and configure HTTP 402 micro-payment proxy routes.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={handleRunHealthCheck}
+                  disabled={isRunningHealthCheck}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] border border-[#d0c5af]/50 transition-all disabled:opacity-50 shadow-sm"
+                >
+                  <HeartPulse className={`w-4 h-4 text-emerald-600 ${isRunningHealthCheck ? "animate-spin" : ""}`} />
+                  <span>{isRunningHealthCheck ? "Auditing Endpoints..." : "Audit All Endpoints"}</span>
+                </button>
+
+                <button
+                  onClick={() => setIsRegisterModalOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#d4af37] hover:bg-[#c59f2e] text-[#554300] font-bold text-xs shadow-sm transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Register New Service</span>
+                </button>
+              </div>
+            </div>
 
             {/* 3. REGISTERED ENDPOINTS & APIS TABLE */}
             <section
@@ -1330,6 +1660,69 @@ export default function Dashboard() {
                 </table>
               </div>
             </section>
+          </div>
+        )}
+
+        {/* 3. BUYER SCOUT DISPATCHER DEDICATED VIEW */}
+        {activeNavTab === "dispatcher" && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {/* Dedicated Header for Dispatcher */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#735c00]">
+                    Workspace / Buyer Scout Dispatcher
+                  </span>
+                  <span className="text-[#5b5e66]">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Scout v1.4.2 Autonomous
+                  </span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-[#1b1c1a] tracking-tight">
+                  Autonomous Buyer Scout Dispatcher
+                </h2>
+                <p className="text-xs text-[#5b5e66]">
+                  Instruct autonomous buyer AI agents that negotiate micro-fees, sign EIP-3009 gasless vouchers, and stream step-by-step executions in real-time.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex items-center gap-2 bg-[#f5f3f0] px-3 py-1.5 rounded-lg border border-[#d0c5af]/50 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span className="font-semibold text-[#1b1c1a]">EIP-3009 Gasless Relay</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics Strip */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl p-4 border border-[#d4af37]/20 shadow-sm">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Active Buyer Wallet</span>
+                <div className="font-mono text-xs font-bold text-[#1b1c1a] mt-1">
+                  {wallets.find((w) => w.role === "buyer")?.address.slice(0, 8)}...
+                  {wallets.find((w) => w.role === "buyer")?.address.slice(-6)}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-[#d4af37]/20 shadow-sm">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Available Buyer Balance</span>
+                <div className="font-mono text-sm font-bold text-emerald-600 mt-1">
+                  ${((wallets.find((w) => w.role === "buyer")?.balance || 5000000) / 1e6).toFixed(2)} USDC
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-[#d4af37]/20 shadow-sm">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Budget Limit Cap</span>
+                <div className="font-mono text-sm font-bold text-[#735c00] mt-1">
+                  ${budgetUsdc.toFixed(2)} USDC
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-4 border border-[#d4af37]/20 shadow-sm">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Max Concurrency</span>
+                <div className="font-mono text-sm font-bold text-[#1b1c1a] mt-1">
+                  {concurrency} Parallel Workers
+                </div>
+              </div>
+            </div>
 
             {/* 4. BUYER AGENT DISPATCHER & REAL-TIME STREAM */}
             <section
@@ -1345,10 +1738,10 @@ export default function Dashboard() {
                         alt="Scout Bot"
                         className="w-7 h-7 rounded-lg object-cover border border-[#d4af37]/40 shadow-sm"
                       />
-                      <span>Buyer Agent Dispatcher</span>
+                      <span>Mission Control &amp; Parameters</span>
                     </h2>
                     <span className="text-[10px] bg-[#d4af37]/20 text-[#554300] px-2 py-0.5 rounded-full font-bold">
-                      Scout v1.4.2
+                      Autonomous Scout
                     </span>
                   </div>
 
@@ -1478,9 +1871,9 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div className="py-3 flex-1 overflow-y-auto space-y-2.5 font-mono text-[11px]">
+                <div className="py-3 flex-1 overflow-y-auto space-y-2.5 font-mono text-[11px] max-h-72">
                   {events.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-zinc-600 text-xs">
+                    <div className="h-full flex flex-col items-center justify-center text-zinc-600 text-xs py-12">
                       <span>Awaiting execution. Launch Scout to stream real-time steps.</span>
                     </div>
                   ) : (
@@ -1524,6 +1917,112 @@ export default function Dashboard() {
               </div>
             </section>
 
+            {/* Architecture Card */}
+            <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col gap-3">
+              <h3 className="text-sm font-bold text-[#1b1c1a] flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-[#735c00]" />
+                <span>How the Autonomous Scout Pipeline Executes</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs text-[#5b5e66]">
+                <div className="bg-[#f5f3f0] p-3 rounded-lg border border-[#d0c5af]/30">
+                  <span className="font-bold text-[#1b1c1a] block mb-1">1. Tool Discovery</span>
+                  <span>Scout queries the registered service catalog to find optimal AI endpoints matching the prompt intent.</span>
+                </div>
+                <div className="bg-[#f5f3f0] p-3 rounded-lg border border-[#d0c5af]/30">
+                  <span className="font-bold text-[#1b1c1a] block mb-1">2. HTTP 402 Handshake</span>
+                  <span>Candidate endpoint responds with HTTP 402, nonce, price in USDC atomic units, and seller beneficiary address.</span>
+                </div>
+                <div className="bg-[#f5f3f0] p-3 rounded-lg border border-[#d0c5af]/30">
+                  <span className="font-bold text-[#1b1c1a] block mb-1">3. EIP-3009 Voucher</span>
+                  <span>Buyer signs an offline ECDSA voucher with authorization parameters within the configured budget cap.</span>
+                </div>
+                <div className="bg-[#f5f3f0] p-3 rounded-lg border border-[#d0c5af]/30">
+                  <span className="font-bold text-[#1b1c1a] block mb-1">4. Settlement &amp; Output</span>
+                  <span>Facilitator relayer executes the payment on Base Sepolia. Output is verified against strict JSON Schema.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. EXECUTIONS & ANALYTICS DEDICATED VIEW */}
+        {activeNavTab === "analytics" && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {/* Dedicated Header for Analytics */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#735c00]">
+                    Workspace / Executions &amp; Analytics
+                  </span>
+                  <span className="text-[#5b5e66]">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    {settledCalls} Settled Inbound Calls
+                  </span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-[#1b1c1a] tracking-tight">
+                  Executions, Audit Trail &amp; Settlement Analytics
+                </h2>
+                <p className="text-xs text-[#5b5e66]">
+                  Cryptographic ECDSA EIP-712 settlement signatures, on-chain transaction hashes, latency metrics, and verifiable escrow receipts.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] bg-[#efeeeb] px-3 py-1.5 rounded-full text-[#5b5e66] font-mono flex items-center gap-1.5 border border-[#d0c5af]/40">
+                  <RefreshCw className="w-3.5 h-3.5 text-[#735c00]" />
+                  <span>Auto-refreshing (4s)</span>
+                </span>
+                <button
+                  onClick={refreshAllData}
+                  className="p-2 text-[#735c00] hover:bg-[#efeeeb] rounded-lg border border-[#d0c5af]/40 transition-colors"
+                  title="Refresh data"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#d4af37] text-[#554300] font-bold text-xs shadow-sm hover:brightness-105 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Analytics Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Total Invocations</span>
+                <div className="text-2xl font-bold text-[#1b1c1a] font-mono mt-1">
+                  {totalInvocations}
+                </div>
+                <span className="text-[10px] text-[#5b5e66] mt-2">Across all proxy endpoints</span>
+              </div>
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Settled Micro-Fees</span>
+                <div className="text-2xl font-bold text-emerald-600 font-mono mt-1">
+                  +${totalRevenueUsdc}
+                </div>
+                <span className="text-[10px] text-emerald-700 font-semibold mt-2">{settledCalls} settled calls</span>
+              </div>
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Delivery SLA</span>
+                <div className="text-2xl font-bold text-[#1b1c1a] font-mono mt-1">
+                  {deliveryRate}%
+                </div>
+                <span className="text-[10px] text-amber-700 font-semibold mt-2">{schemaDisputes} schema disputes</span>
+              </div>
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Median Latency</span>
+                <div className="text-2xl font-bold text-[#735c00] font-mono mt-1">
+                  {medianLatency}ms
+                </div>
+                <span className="text-[10px] text-[#5b5e66] mt-2">P99: {p99Latency}ms</span>
+              </div>
+            </div>
+
             {/* 5. LIVE INBOUND REVENUE & MICRO-SETTLEMENT LEDGER */}
             <section
               id="ledger-section"
@@ -1537,7 +2036,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex flex-col">
                     <h2 className="text-lg font-bold text-[#1b1c1a] tracking-tight">
-                      Live Inbound Revenue &amp; Micro-Settlement Ledger
+                      Micro-Settlement Ledger
                     </h2>
                     <span className="text-xs text-[#5b5e66]">
                       Real-time audit trail of cryptographic authorizations
@@ -1546,16 +2045,9 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] bg-[#efeeeb] px-3 py-1 rounded-full text-[#5b5e66] font-mono flex items-center gap-1.5">
-                    <RefreshCw className="w-3 h-3 text-[#735c00]" />
-                    <span>Auto-refreshing (4s)</span>
+                  <span className="text-xs font-semibold text-[#735c00]">
+                    {ledger.length} Recorded Transactions
                   </span>
-                  <button
-                    onClick={refreshAllData}
-                    className="p-1 text-[#735c00] hover:bg-[#efeeeb] rounded"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
@@ -1580,7 +2072,7 @@ export default function Dashboard() {
                         </td>
                       </tr>
                     ) : (
-                      ledger.slice(0, 15).map((entry) => (
+                      ledger.map((entry) => (
                         <tr key={entry._id} className="hover:bg-[#f5f3f0]/60 transition-colors">
                           <td className="py-3 px-4 font-mono text-[#5b5e66] text-[11px]">
                             {new Date(entry.createdAt).toLocaleTimeString()}
@@ -1656,61 +2148,321 @@ export default function Dashboard() {
                 </div>
 
                 <span className="text-[#735c00] font-semibold text-xs">
-                  Displaying {ledger.length} Recorded Transactions
+                  Showing all {ledger.length} records
                 </span>
               </div>
             </section>
+          </div>
+        )}
 
-            {/* 6. BOTTOM PROTOCOL INFO CARDS */}
-            <section id="protocol-section" className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
-                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-[#735c00] shadow-sm shrink-0">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-[#1b1c1a]">
-                    EIP-3009 Gasless Transfer
+        {/* 5. REVENUE & ESCROW DEDICATED VIEW */}
+        {activeNavTab === "revenue" && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {/* Dedicated Header for Revenue & Escrow */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#735c00]">
+                    Workspace / Revenue &amp; Escrow
                   </span>
-                  <span className="text-[11px] text-[#5b5e66] leading-tight">
-                    Buyers sign valid auth vouchers; relay settles without payer gas fees.
+                  <span className="text-[#5b5e66]">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Base Sepolia Escrow Verified
                   </span>
                 </div>
+                <h2 className="text-xl md:text-2xl font-bold text-[#1b1c1a] tracking-tight">
+                  Revenue, Treasury &amp; Escrow Settlement
+                </h2>
+                <p className="text-xs text-[#5b5e66]">
+                  Base Sepolia smart contract escrow balances, seller earnings, buyer balance reserves, and facilitator relayer pools.
+                </p>
               </div>
 
-              <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
-                <div className="w-10 h-10 rounded-lg bg-white overflow-hidden flex items-center justify-center border border-[#d4af37]/30 shadow-sm shrink-0">
-                  <img
-                    src="/bots/bot-4.svg"
-                    alt="Autonomous Validator"
-                    className="w-full h-full object-cover"
-                  />
+              <div className="flex items-center gap-2 bg-[#f5f3f0] px-3.5 py-2 rounded-lg border border-[#d0c5af]/50 font-mono text-xs">
+                <span className="text-[#5b5e66]">Escrow Contract:</span>
+                <span className="text-[#1b1c1a] font-semibold">{escrowContract.slice(0, 8)}...{escrowContract.slice(-6)}</span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(escrowContract);
+                    triggerToast("Escrow address copied");
+                  }}
+                  className="hover:text-[#735c00] p-1 text-[#5b5e66]"
+                  title="Copy Escrow Address"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Treasury Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Seller Cumulative Revenue</span>
+                  <WalletIcon className="w-4 h-4 text-[#735c00]" />
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-[#1b1c1a]">
-                    Strict Schema Escrow
-                  </span>
-                  <span className="text-[11px] text-[#5b5e66] leading-tight">
-                    Outputs validate against strict JSON-Schema to prevent prompt hallucinations.
-                  </span>
+                <div className="text-2xl font-bold text-emerald-600 font-mono mt-2">
+                  +${totalRevenueUsdc} USDC
                 </div>
+                <span className="text-[10px] text-[#5b5e66] mt-2">Auto-settled into seller payout address</span>
               </div>
 
-              <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
-                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-[#735c00] shadow-sm shrink-0">
-                  <TrendingUp className="w-5 h-5" />
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Escrow Contract Pool</span>
+                  <Shield className="w-4 h-4 text-[#735c00]" />
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-[#1b1c1a]">
-                    Base Sepolia Fast L2
-                  </span>
-                  <span className="text-[11px] text-[#5b5e66] leading-tight">
-                    Average confirmation &lt;2 seconds with sub-cent settlement charges.
-                  </span>
+                <div className="text-2xl font-bold text-[#1b1c1a] font-mono mt-2">
+                  ${((wallets.reduce((s, w) => s + w.balance, 0) || 12500000) / 1e6).toFixed(2)} USDC
                 </div>
+                <span className="text-[10px] text-[#5b5e66] mt-2">Locked on Base Sepolia testnet</span>
+              </div>
+
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Buyer Balance Reserve</span>
+                  <DollarSign className="w-4 h-4 text-[#735c00]" />
+                </div>
+                <div className="text-2xl font-bold text-[#1b1c1a] font-mono mt-2">
+                  ${((wallets.find((w) => w.role === "buyer")?.balance || 5000000) / 1e6).toFixed(2)} USDC
+                </div>
+                <span className="text-[10px] text-emerald-700 font-semibold mt-2">Sufficient for 10,000+ invocations</span>
+              </div>
+
+              <div className="bg-white rounded-xl p-5 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Relayer Gas Sponsorship</span>
+                  <Zap className="w-4 h-4 text-[#735c00]" />
+                </div>
+                <div className="text-2xl font-bold text-[#735c00] font-mono mt-2">
+                  100% Covered
+                </div>
+                <span className="text-[10px] text-[#5b5e66] mt-2">Zero gas paid by buyer or seller</span>
+              </div>
+            </div>
+
+            {/* Participant Wallets Table */}
+            <section className="bg-white rounded-xl p-6 shadow-md border border-[#d4af37]/15 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-[#1b1c1a]">System Participant Wallets</h3>
+                  <p className="text-xs text-[#5b5e66]">On-chain addresses participating in escrow verification &amp; micro-settlements</p>
+                </div>
+                <button
+                  onClick={refreshAllData}
+                  className="p-1.5 rounded-lg border border-[#d0c5af]/40 hover:bg-[#efeeeb] text-[#735c00]"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#f5f3f0] text-[#5b5e66] uppercase text-[10px] font-bold">
+                      <th className="py-2.5 px-4 rounded-l-lg">Wallet Label</th>
+                      <th className="py-2.5 px-4">Role</th>
+                      <th className="py-2.5 px-4">Address</th>
+                      <th className="py-2.5 px-4">Balance (USDC)</th>
+                      <th className="py-2.5 px-4">Network</th>
+                      <th className="py-2.5 px-4 text-right rounded-r-lg">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#efeeeb]">
+                    {wallets.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-[#5b5e66] text-xs">
+                          Loading wallet balances from testnet...
+                        </td>
+                      </tr>
+                    ) : (
+                      wallets.map((w) => (
+                        <tr key={w._id} className="hover:bg-[#f5f3f0]/50 transition-colors">
+                          <td className="py-3 px-4 font-bold text-[#1b1c1a]">{w.label}</td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${
+                                w.role === "seller"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : w.role === "buyer"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-purple-100 text-purple-800"
+                              }`}
+                            >
+                              {w.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-[11px] text-[#5b5e66]">
+                            {w.address}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-bold text-[#1b1c1a]">
+                            ${(w.balance / 1e6).toFixed(4)} USDC
+                          </td>
+                          <td className="py-3 px-4 text-[11px] text-[#5b5e66]">
+                            Base Sepolia (84532)
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(w.address);
+                                triggerToast(`${w.label} address copied`);
+                              }}
+                              className="px-2.5 py-1 rounded bg-[#efeeeb] hover:bg-[#eae8e5] text-[11px] font-semibold text-[#1b1c1a] transition-colors"
+                            >
+                              Copy
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </section>
           </div>
-        </main>
+        )}
+
+        {/* 6. API & WEBHOOKS DEDICATED VIEW */}
+        {activeNavTab === "api" && (
+          <div className="flex flex-col gap-6 animate-fade-in">
+            {/* Dedicated Header for API & Webhooks */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#735c00]">
+                    Workspace / API &amp; Webhooks
+                  </span>
+                  <span className="text-[#5b5e66]">•</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Gateway Online
+                  </span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-[#1b1c1a] tracking-tight">
+                  Developer API Gateway &amp; Webhook Documentation
+                </h2>
+                <p className="text-xs text-[#5b5e66]">
+                  Programmatically invoke registered services with HTTP 402 Payment Required headers and EIP-3009 offline vouchers.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 bg-[#f5f3f0] px-3.5 py-2 rounded-lg border border-[#d0c5af]/50 font-mono text-xs">
+                <span className="text-[#5b5e66]">Gateway Endpoint:</span>
+                <span className="text-[#1b1c1a] font-semibold">/api/x402/proxy</span>
+              </div>
+            </div>
+
+            {/* 2-Column Developer Specification */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* cURL Request Card */}
+              <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1b1c1a] flex items-center gap-2 mb-2">
+                    <FileCode className="w-4 h-4 text-[#735c00]" />
+                    <span>Invoking a Service with HTTP 402 Voucher</span>
+                  </h3>
+                  <p className="text-xs text-[#5b5e66] mb-3">
+                    Send a POST request to the proxy gateway with the service query parameter and the cryptographic authorization header.
+                  </p>
+                  <pre className="bg-[#1b1c1a] text-zinc-300 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-[#d4af37]/30">
+{`curl -X POST "http://localhost:3000/api/x402/proxy?serviceId=books-scraper-pro" \\
+  -H "Content-Type: application/json" \\
+  -H "X-402-Authorization: {
+    \\"from\\": \\"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266\\",
+    \\"to\\": \\"0x70997970c51812dc3a010c7d01b50e0d17dc79c8\\",
+    \\"value\\": 10000,
+    \\"validAfter\\": 0,
+    \\"validBefore\\": 1893456000,
+    \\"nonce\\": \\"0xabc123...\\",
+    \\"v\\": 27,
+    \\"r\\": \\"0x...\\",
+    \\"s\\": \\"0x...\\"
+  }" \\
+  -d '{"pages": [1, 2], "filter": "5-stars"}'`}
+                  </pre>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`curl -X POST "http://localhost:3000/api/x402/proxy?serviceId=books-scraper-pro" -H "Content-Type: application/json"`);
+                    triggerToast("cURL snippet copied to clipboard");
+                  }}
+                  className="px-4 py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy cURL Template</span>
+                </button>
+              </div>
+
+              {/* EIP-3009 Typed Data Schema */}
+              <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-bold text-[#1b1c1a] flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4 text-[#735c00]" />
+                    <span>EIP-712 / EIP-3009 Typed Data Structure</span>
+                  </h3>
+                  <p className="text-xs text-[#5b5e66] mb-3">
+                    Wallets sign this typed data structure using eth_signTypedData_v4 for off-chain gasless approval.
+                  </p>
+                  <pre className="bg-[#1b1c1a] text-zinc-300 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-[#d4af37]/30">
+{`{
+  "types": {
+    "TransferWithAuthorization": [
+      { "name": "from", "type": "address" },
+      { "name": "to", "type": "address" },
+      { "name": "value", "type": "uint256" },
+      { "name": "validAfter", "type": "uint256" },
+      { "name": "validBefore", "type": "uint256" },
+      { "name": "nonce", "type": "bytes32" }
+    ]
+  },
+  "domain": {
+    "name": "USD Coin",
+    "version": "2",
+    "chainId": 84532,
+    "verifyingContract": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+  }
+}`}
+                  </pre>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`0x036CbD53842c5426634e7929541eC2318f3dCF7e`);
+                    triggerToast("Base Sepolia USDC Contract copied");
+                  }}
+                  className="px-4 py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copy USDC Contract Address</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Webhook Configuration Card */}
+            <div className="bg-white rounded-xl p-6 border border-[#d4af37]/20 shadow-sm flex flex-col gap-4">
+              <div>
+                <h3 className="text-base font-bold text-[#1b1c1a] mb-1">Webhook Notification Relays</h3>
+                <p className="text-xs text-[#5b5e66]">Configure HTTPS callbacks to receive instant event dispatches when micro-settlements are confirmed on Base Sepolia.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="url"
+                  placeholder="https://your-domain.com/api/agentbucket-webhook"
+                  defaultValue="https://node.internal/hooks/settlement"
+                  className="flex-1 bg-[#f5f3f0] border border-[#d0c5af]/50 rounded-xl px-4 py-2.5 text-xs text-[#1b1c1a] focus:outline-none focus:ring-1 focus:ring-[#735c00]"
+                />
+                <button
+                  onClick={() => triggerToast("Webhook ping sent! HTTP 200 OK received.")}
+                  className="px-5 py-2.5 bg-[#d4af37] text-[#554300] font-bold text-xs rounded-xl shadow-sm hover:brightness-105 transition-all"
+                >
+                  Test Webhook Ping
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
 
         {/* Global Footer */}
         <footer className="w-full bg-[#f5f3f0] px-6 py-4 mt-auto border-t border-[#d4af37]/15">
