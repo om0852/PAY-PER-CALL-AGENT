@@ -5,13 +5,13 @@ import { runBuyerAgent } from "@/lib/x402/buyerAgent";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { task, budget, maxConcurrency } = body;
+    const { task, budget, maxConcurrency, taskId: incomingTaskId } = body;
 
     if (!task) {
       return NextResponse.json({ error: "Task description is required" }, { status: 400 });
     }
 
-    const taskId = "task-" + crypto.randomUUID().slice(0, 8);
+    const taskId = incomingTaskId || ("task-" + crypto.randomUUID().slice(0, 8));
     const parsedBudget = budget ? Number(budget) : 500000; // default 0.50 USDC (500000 atomic units)
     const parsedConcurrency = maxConcurrency ? Number(maxConcurrency) : 3;
 

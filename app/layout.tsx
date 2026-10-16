@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PrimaStore - Authentication",
-  description: "PrimaStore Authentication Portal",
+  title: "x402 Agent Platform - Autonomous Micropayments",
+  description: "x402 v2 Pay-Per-Call Autonomous Agent Platform with EIP-712/3009 offline signatures and dynamic reputation",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
