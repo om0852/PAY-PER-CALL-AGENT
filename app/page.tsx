@@ -480,6 +480,16 @@ export default function Dashboard() {
               Simulated Chain (Offline Viem Signatures)
             </span>
 
+            {/* Provider Studio Link */}
+            <Link
+              href="/provider"
+              className="px-3 py-1.5 rounded-lg bg-[#d4af37]/20 hover:bg-[#d4af37]/30 text-[#e9c349] border border-[#d4af37]/40 font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              title="Open Provider Studio & Analytics Dashboard"
+            >
+              <Layers className="w-3.5 h-3.5 text-[#d4af37]" />
+              <span>Provider Studio</span>
+            </Link>
+
             {/* Register Agent / Service Button */}
             <button
               onClick={() => setIsRegisterModalOpen(true)}
