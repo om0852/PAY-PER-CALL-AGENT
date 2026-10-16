@@ -219,6 +219,15 @@ Respond with ONLY valid JSON in this exact structure:
     });
   }
 
+  if (lower.includes("xml") || lower.includes("dataset") || lower.includes("converter") || lower.includes("transform")) {
+    steps.push({
+      stepIndex: stepCounter++,
+      category: "data",
+      description: "Convert XML data feed into validated structured JSON payload",
+      input: { xml: "<dataset version=\"2.0\"><item id=\"item-01\"><name>Enterprise Data Node</name><status>active</status></item></dataset>" },
+    });
+  }
+
   if (lower.includes("report") || lower.includes("dossier") || lower.includes("executive")) {
     steps.push({
       stepIndex: stepCounter++,

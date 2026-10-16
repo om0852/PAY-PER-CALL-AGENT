@@ -291,6 +291,49 @@ export async function ensureSeededData() {
       },
       active: true,
     },
+    {
+      name: "XML to JSON Pro Converter",
+      category: "data" as const,
+      endpoint: "/api/sellers/xml-to-json",
+      price: 30000, // 0.03 USDC
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      network: "eip155:84532",
+      payTo: SELLER_WALLETS.reportGen,
+      schema: {
+        type: "object",
+        required: ["success", "rootTag", "data", "elementCount", "convertedAt"],
+        properties: {
+          success: { type: "boolean" },
+          rootTag: { type: "string" },
+          data: { type: "object" },
+          elementCount: { type: "number" },
+          convertedAt: { type: "string" },
+        },
+      },
+      active: true,
+    },
+    {
+      name: "Sentiment & Category Classifier AI",
+      category: "sentiment" as const,
+      endpoint: "/api/sellers/sentiment-categorizer",
+      price: 35000, // 0.035 USDC
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      network: "eip155:84532",
+      payTo: SELLER_WALLETS.sentiment,
+      schema: {
+        type: "object",
+        required: ["sentiment", "score", "category", "confidence", "tags", "processedAt"],
+        properties: {
+          sentiment: { type: "string", enum: ["POSITIVE", "NEUTRAL", "NEGATIVE"] },
+          score: { type: "number" },
+          category: { type: "string" },
+          confidence: { type: "number" },
+          tags: { type: "array", items: { type: "string" } },
+          processedAt: { type: "string" },
+        },
+      },
+      active: true,
+    },
   ];
 
   for (const s of seedServices) {

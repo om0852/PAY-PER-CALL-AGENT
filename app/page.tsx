@@ -50,6 +50,7 @@ import {
   ArrowUpRight,
   BarChart3,
   PieChart,
+  Smartphone,
 } from "lucide-react";
 
 import SchemaModal from "@/components/provider/SchemaModal";
@@ -1221,6 +1222,17 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            {/* Mobile App Link */}
+            <Link
+              href="/mobile"
+              target="_blank"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1b1c1a] hover:bg-[#333] text-xs font-bold text-[#d4af37] border border-[#d4af37]/40 shadow-xs transition-all shrink-0"
+              title="Open Mobile Companion App"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#d4af37]" />
+              <span className="hidden sm:inline">📱 Mobile App</span>
+            </Link>
+
             {/* Health Audit Button */}
             <button
               onClick={handleRunHealthCheck}
