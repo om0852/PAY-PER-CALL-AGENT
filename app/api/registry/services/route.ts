@@ -62,6 +62,12 @@ export async function GET(req: Request) {
           payTo: svc.payTo,
           schema: svc.schema,
           active: svc.active,
+          health: svc.health || {
+            status: "HEALTHY",
+            lastChecked: new Date(),
+            latencyMs: 0,
+            message: "Operational",
+          },
           reputation: {
             score: reputationScore,
             successRate,

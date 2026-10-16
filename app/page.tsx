@@ -21,6 +21,8 @@ import {
   User as UserIcon,
   X,
   CheckCircle,
+  Bell,
+  HeartPulse,
 } from "lucide-react";
 
 interface WalletData {
@@ -38,6 +40,12 @@ interface ServiceData {
   endpoint: string;
   price: number;
   payTo: string;
+  health?: {
+    status: "HEALTHY" | "DEGRADED" | "DOWN" | "SCHEMA_MISMATCH";
+    lastChecked: string;
+    latencyMs: number;
+    message?: string;
+  };
   reputation: {
     score: number;
     successRate: number;
@@ -45,6 +53,18 @@ interface ServiceData {
     totalCalls: number;
     rejectedCalls: number;
   };
+}
+
+interface NotificationData {
+  id: string;
+  serviceId: string | null;
+  serviceName: string;
+  type: "HEALTH_ALERT" | "ENDPOINT_DOWN" | "SCHEMA_MISMATCH" | "INFO";
+  severity: "info" | "warning" | "error";
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
 }
 
 interface LedgerEntry {
@@ -124,7 +144,27 @@ export default function Dashboard() {
   const [loadingData, setLoadingData] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Notification & Automated Health Check States
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
+  const [isRunningHealthCheck, setIsRunningHealthCheck] = useState<boolean>(false);
+  const [healthCheckSummary, setHealthCheckSummary] = useState<string | null>(null);
+
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch("/api/notifications");
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.warn("Failed to fetch notifications:", err);
+    }
+  };
 
   // Load all data from API endpoints with fault isolation
   const refreshAllData = async () => {
@@ -159,8 +199,45 @@ export default function Dashboard() {
       } catch (err) {
         console.warn("Failed to fetch ledger:", err);
       }
+
+      await fetchNotifications();
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  const handleRunHealthCheck = async () => {
+    setIsRunningHealthCheck(true);
+    setHealthCheckSummary(null);
+    try {
+      const res = await fetch("/api/registry/health-check", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setHealthCheckSummary(
+          `Health Audit Complete: ${data.summary.healthy} healthy, ${data.summary.alerts} alerts detected across ${data.summary.total} agents.`
+        );
+        await refreshAllData();
+      } else {
+        throw new Error(data.error || "Health check execution failed");
+      }
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsRunningHealthCheck(false);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+      console.warn("Failed to mark all read:", err);
     }
   };
 
@@ -411,6 +488,93 @@ export default function Dashboard() {
               <Plus className="w-3.5 h-3.5" />
               Register Agent
             </button>
+
+            {/* Health Audit Button */}
+            <button
+              onClick={handleRunHealthCheck}
+              disabled={isRunningHealthCheck}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+              title="Run automated health check and schema validation on all agents"
+            >
+              <HeartPulse className={`w-3.5 h-3.5 ${isRunningHealthCheck ? "animate-spin text-emerald-400" : ""}`} />
+              <span>{isRunningHealthCheck ? "Auditing..." : "Health Audit"}</span>
+            </button>
+
+            {/* Notification Bell with Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors relative text-xs flex items-center justify-center"
+                title="Notifications & Agent Health Alerts"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-4 z-50 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-indigo-400" />
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Agent Health Alerts</h4>
+                      {unreadCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 font-mono">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                    {notifications.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-4">No alerts recorded. All agents healthy.</p>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-2.5 rounded-xl border text-xs space-y-1 ${
+                            !n.read
+                              ? "bg-slate-800/80 border-slate-700 text-slate-200"
+                              : "bg-slate-950/50 border-slate-800 text-slate-400"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-[11px] text-slate-200">{n.title}</span>
+                            <span
+                              className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ${
+                                n.severity === "error"
+                                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                  : n.severity === "warning"
+                                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                  : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                              }`}
+                            >
+                              {n.type}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">{n.message}</p>
+                          <p className="text-[9px] text-slate-500 font-mono">
+                            {new Date(n.createdAt).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Sync Button */}
             <button
@@ -769,6 +933,18 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {healthCheckSummary && (
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs flex items-center justify-between">
+                <span>{healthCheckSummary}</span>
+                <button
+                  onClick={() => setHealthCheckSummary(null)}
+                  className="text-xs text-indigo-400 hover:text-indigo-200 ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2">
               {services.map((svc) => (
                 <div
@@ -781,6 +957,22 @@ export default function Dashboard() {
                       <span className="text-slate-500 text-[11px] ml-2">({svc.category})</span>
                     </div>
                     <div className="flex items-center gap-2">
+                      {svc.health && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold ${
+                            svc.health.status === "HEALTHY"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : svc.health.status === "SCHEMA_MISMATCH"
+                              ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                              : svc.health.status === "DEGRADED"
+                              ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          }`}
+                          title={svc.health.message || svc.health.status}
+                        >
+                          ● {svc.health.status}
+                        </span>
+                      )}
                       <span className="text-emerald-400 font-mono font-bold">
                         {(svc.price / 1e6).toFixed(4)} USDC
                       </span>
