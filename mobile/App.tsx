@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
-import { initNotifications } from "./src/services/notifications";
+import { initNotifications, triggerSystemNotification } from "./src/services/notifications";
+import { fetchAlerts } from "./src/services/api";
 
 import DashboardScreen from "./src/screens/DashboardScreen";
 import TransactionsScreen from "./src/screens/TransactionsScreen";
@@ -24,8 +25,42 @@ function TabIcon({ label, focused, icon }: { label: string; focused: boolean; ic
 }
 
 export default function App() {
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const knownAlertIdsRef = useRef<Set<string>>(new Set());
+  const isFirstCheckRef = useRef<boolean>(true);
+
   useEffect(() => {
     initNotifications();
+
+    // Global background listener for alerts (e.g. from Web health audits or autonomous tasks)
+    const pollAlerts = async () => {
+      try {
+        const res = await fetchAlerts();
+        const alerts = res.alerts || [];
+        setUnreadCount(res.unreadCount || alerts.filter((a: any) => !a.read).length);
+
+        // First check: seed known IDs so we don't spam older alerts
+        if (isFirstCheckRef.current) {
+          alerts.forEach((a: any) => knownAlertIdsRef.current.add(a.id));
+          isFirstCheckRef.current = false;
+          return;
+        }
+
+        // Subsequent polls: trigger native phone OS notification bar for ANY new incoming alert!
+        for (const alert of alerts) {
+          if (!knownAlertIdsRef.current.has(alert.id)) {
+            knownAlertIdsRef.current.add(alert.id);
+            await triggerSystemNotification(alert.title, alert.message);
+          }
+        }
+      } catch {
+        // network polling silent retry
+      }
+    };
+
+    pollAlerts();
+    const interval = setInterval(pollAlerts, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -85,6 +120,8 @@ export default function App() {
               component={AlertsScreen}
               options={{
                 title: "Alerts & Status",
+                tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+                tabBarBadgeStyle: { backgroundColor: "#ef4444", fontSize: 10, fontWeight: "800" },
                 tabBarIcon: ({ focused }) => <TabIcon label="Alerts" focused={focused} icon="🔔" />,
               }}
             />
@@ -98,5 +135,5 @@ export default function App() {
 const styles = StyleSheet.create({
   tabItem: { alignItems: "center", justifyContent: "center" },
   tabLabel: { fontSize: 10, fontWeight: "600", color: "#8c8f94", marginTop: 2 },
-  tabLabelActive: { color: "#1b1c1a", fontWeight: "800" },
+  tabLabelActive: { color: "#d4af37", fontWeight: "800" },
 });

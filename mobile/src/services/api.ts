@@ -92,3 +92,23 @@ export const runAutomationTask = async (task: string, budgetUsdc: number = 0.5) 
   if (!res.ok) throw new Error("Failed to start agent automation");
   return await res.json();
 };
+
+export const runMobileHealthCheck = async () => {
+  const res = await fetch(`${API_BASE_URL}/api/mobile/alerts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "RUN_HEALTH_CHECK" }),
+  });
+  if (!res.ok) throw new Error("Health check failed");
+  return await res.json();
+};
+
+export const markAllAlertsRead = async () => {
+  const res = await fetch(`${API_BASE_URL}/api/mobile/alerts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "MARK_ALL_READ" }),
+  });
+  if (!res.ok) throw new Error("Failed to mark alerts as read");
+  return await res.json();
+};

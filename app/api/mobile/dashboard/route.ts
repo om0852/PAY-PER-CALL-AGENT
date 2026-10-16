@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Wallet from "@/lib/models/Wallet";
 import Service from "@/lib/models/Service";
 import Ledger from "@/lib/models/Ledger";
+import Notification from "@/lib/models/Notification";
 import { ensureSeededData } from "@/lib/x402/seed";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,12 @@ export async function GET() {
     const settledTransactions = ledger.filter((l) => l.status === "SETTLED");
     const failedTransactions = ledger.filter((l) => l.status && l.status.includes("FAILED"));
 
-    // 4. Generate dynamic mobile alerts
+    // 4. Fetch real notifications from MongoDB
+    const dbNotifications = await Notification.find({})
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
     const alerts: Array<{
       id: string;
       type: "LOW_BALANCE" | "FAILED_TASK" | "SERVICE_DOWN";
@@ -65,31 +71,21 @@ export async function GET() {
       });
     }
 
-    // Alert 2: Failed tasks / schema rejections
-    if (failedTransactions.length > 0) {
-      const latestFail = failedTransactions[0];
-      alerts.push({
-        id: `alert-fail-${latestFail._id}`,
-        type: "FAILED_TASK",
-        title: "❌ Execution Schema Dispute Auto-Refunded",
-        message: `Task step on "${latestFail.serviceName}" failed output schema. $0.00 charged. Buyer refunded.`,
-        severity: "warning",
-        timestamp: new Date(latestFail.createdAt || Date.now()).getTime(),
-      });
-    }
+    // Map real notifications
+    dbNotifications.forEach((n: any) => {
+      let alertType: "LOW_BALANCE" | "FAILED_TASK" | "SERVICE_DOWN" = "SERVICE_DOWN";
+      if (n.type === "SCHEMA_MISMATCH") alertType = "FAILED_TASK";
+      else if (n.type === "ENDPOINT_DOWN" || n.type === "HEALTH_ALERT") alertType = "SERVICE_DOWN";
 
-    // Alert 3: Service down / degraded
-    if (downCount > 0 || degradedCount > 0) {
-      const badService = services.find((s) => s.health?.status === "DOWN" || s.health?.status === "DEGRADED" || s.active === false);
       alerts.push({
-        id: `alert-down-${badService?._id || "srv"}`,
-        type: "SERVICE_DOWN",
-        title: "🔴 Service Node Alert",
-        message: `Node "${badService?.name || "Service"}" is currently ${badService?.health?.status || "Offline"}. Fallback nodes active.`,
-        severity: "error",
-        timestamp: Date.now() - 60000,
+        id: n._id.toString(),
+        type: alertType,
+        title: n.title,
+        message: n.message,
+        severity: n.severity || "warning",
+        timestamp: new Date(n.createdAt || Date.now()).getTime(),
       });
-    }
+    });
 
     return NextResponse.json({
       success: true,

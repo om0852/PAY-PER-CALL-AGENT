@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Wallet from "@/lib/models/Wallet";
-import Service from "@/lib/models/Service";
-import Ledger from "@/lib/models/Ledger";
+import Notification from "@/lib/models/Notification";
+import { runHealthCheckForServices } from "@/lib/x402/healthChecker";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +10,29 @@ export async function GET() {
   try {
     await connectToDatabase();
 
-    const [buyerWallet, services, failedEntries] = await Promise.all([
-      Wallet.findOne({ role: "buyer" }).lean(),
-      Service.find({}).lean(),
-      Ledger.find({ status: { $regex: /FAILED/ } }).sort({ createdAt: -1 }).limit(10).lean(),
-    ]);
+    // 1. Fetch real notifications from MongoDB
+    let dbNotifications = await Notification.find({})
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
 
+    // If none exist, trigger an SLA health audit to generate real live alerts
+    if (dbNotifications.length === 0) {
+      try {
+        await runHealthCheckForServices();
+        dbNotifications = await Notification.find({})
+          .sort({ createdAt: -1 })
+          .limit(30)
+          .lean();
+      } catch (e) {
+        console.warn("Could not run initial health check:", e);
+      }
+    }
+
+    // 2. Fetch Buyer Wallet for real-time low balance detection
+    const buyerWallet = await Wallet.findOne({ role: "buyer" }).lean();
     const buyerBalance = (buyerWallet?.balance || 0) / 1e6;
+
     const alerts: Array<{
       id: string;
       type: "LOW_BALANCE" | "FAILED_TASK" | "SERVICE_DOWN";
@@ -24,66 +40,84 @@ export async function GET() {
       message: string;
       severity: "warning" | "error" | "info";
       timestamp: number;
+      read?: boolean;
+      serviceName?: string;
       actionUrl?: string;
     }> = [];
 
-    // 1. Low balance alert
+    // Low balance alert if applicable
     if (buyerBalance < 2.0) {
       alerts.push({
         id: "alert-low-balance",
         type: "LOW_BALANCE",
-        title: "⚠️ Low Balance Alert",
-        message: `Your Buyer Wallet has only $${buyerBalance.toFixed(4)} USDC remaining. Add funds to prevent agent execution pauses.`,
+        title: "⚠️ Low Agent Balance Alert",
+        message: `Your Buyer Wallet has $${buyerBalance.toFixed(4)} USDC remaining (threshold: $2.00 USDC). Top up to maintain autonomous execution.`,
         severity: buyerBalance < 0.5 ? "error" : "warning",
         timestamp: Date.now(),
-        actionUrl: "/mobile?tab=balance",
+        read: false,
+        actionUrl: "/mobile?tab=wallet",
       });
     }
 
-    // 2. Failed task / schema rejected alerts
-    failedEntries.forEach((entry) => {
+    // Map real database notifications from health checker & agent disputes
+    dbNotifications.forEach((n: any) => {
+      let alertType: "LOW_BALANCE" | "FAILED_TASK" | "SERVICE_DOWN" = "SERVICE_DOWN";
+      if (n.type === "SCHEMA_MISMATCH") alertType = "FAILED_TASK";
+      else if (n.type === "ENDPOINT_DOWN" || n.type === "HEALTH_ALERT") alertType = "SERVICE_DOWN";
+
       alerts.push({
-        id: `alert-failed-${entry._id}`,
-        type: "FAILED_TASK",
-        title: "❌ Schema Validation Disputed",
-        message: `Execution on "${entry.serviceName}" failed output schema. $0.00 debited, 100% reimbursed.`,
-        severity: "warning",
-        timestamp: new Date(entry.createdAt || Date.now()).getTime(),
-        actionUrl: `/tx/${entry.txHash || "dispute"}`,
+        id: n._id.toString(),
+        type: alertType,
+        title: n.title,
+        message: n.message,
+        severity: n.severity || "warning",
+        timestamp: new Date(n.createdAt || Date.now()).getTime(),
+        read: n.read || false,
+        serviceName: n.serviceName,
+        actionUrl: "/mobile?tab=services",
       });
     });
 
-    // 3. Service down alerts
-    services.forEach((s) => {
-      if (s.health?.status === "DOWN" || s.active === false) {
-        alerts.push({
-          id: `alert-down-${s._id}`,
-          type: "SERVICE_DOWN",
-          title: "🔴 Service Node Down",
-          message: `Endpoint "${s.name}" is offline (${s.endpoint}). Autonomous agent will route to ranked fallback.`,
-          severity: "error",
-          timestamp: new Date(s.health?.lastChecked || Date.now()).getTime(),
-          actionUrl: "/mobile?tab=services",
-        });
-      } else if (s.health?.status === "DEGRADED" || s.health?.status === "SCHEMA_MISMATCH") {
-        alerts.push({
-          id: `alert-deg-${s._id}`,
-          type: "SERVICE_DOWN",
-          title: "🟡 Service Degraded SLA",
-          message: `Endpoint "${s.name}" reported high latency (${s.health?.latencyMs}ms) or schema mismatch.`,
-          severity: "warning",
-          timestamp: new Date(s.health?.lastChecked || Date.now()).getTime(),
-          actionUrl: "/mobile?tab=services",
-        });
-      }
-    });
+    const unreadCount = alerts.filter((a) => !a.read).length;
 
     return NextResponse.json({
       success: true,
       alerts,
       count: alerts.length,
-      unreadCount: alerts.length,
+      unreadCount,
     });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await connectToDatabase();
+    const body = await req.json();
+
+    // Trigger live SLA health audit across all registered services
+    if (body.action === "RUN_HEALTH_CHECK") {
+      const auditResult = await runHealthCheckForServices(true);
+      const dbNotifications = await Notification.find({})
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .lean();
+
+      return NextResponse.json({
+        success: true,
+        message: "SLA Health Check completed. Real alerts generated.",
+        auditResult,
+        notificationsCount: dbNotifications.length,
+      });
+    }
+
+    if (body.action === "MARK_ALL_READ") {
+      await Notification.updateMany({ read: false }, { $set: { read: true } });
+      return NextResponse.json({ success: true, message: "All alerts marked as read." });
+    }
+
+    return NextResponse.json({ success: false, error: "Unknown action" }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

@@ -5,7 +5,7 @@ import Service from "@/lib/models/Service";
 
 export async function POST() {
   try {
-    const results = await runHealthCheckForServices();
+    const results = await runHealthCheckForServices(true);
     const healthyCount = results.filter((r) => r.status === "HEALTHY").length;
     const alertCount = results.filter((r) => r.status !== "HEALTHY").length;
 

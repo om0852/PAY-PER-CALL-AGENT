@@ -17,7 +17,7 @@ export interface HealthCheckResult {
   alertGenerated: boolean;
 }
 
-export async function runHealthCheckForServices(): Promise<HealthCheckResult[]> {
+export async function runHealthCheckForServices(forceNewAlert: boolean = false): Promise<HealthCheckResult[]> {
   await connectToDatabase();
 
   const services = await Service.find({ active: true });
@@ -197,15 +197,21 @@ export async function runHealthCheckForServices(): Promise<HealthCheckResult[]> 
 
     // 4. Generate notification if degraded, down, or schema mismatch
     if (status !== "HEALTHY") {
-      // De-duplicate: check if identical notification exists in the last 10 minutes
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-      const existingAlert = await Notification.findOne({
-        serviceName: svc.name,
-        type: status === "SCHEMA_MISMATCH" ? "SCHEMA_MISMATCH" : status === "DOWN" ? "ENDPOINT_DOWN" : "HEALTH_ALERT",
-        createdAt: { $gte: tenMinutesAgo },
-      });
+      let shouldCreate = true;
+      if (!forceNewAlert) {
+        // De-duplicate: check if identical notification exists in the last 5 minutes
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const existingAlert = await Notification.findOne({
+          serviceName: svc.name,
+          type: status === "SCHEMA_MISMATCH" ? "SCHEMA_MISMATCH" : status === "DOWN" ? "ENDPOINT_DOWN" : "HEALTH_ALERT",
+          createdAt: { $gte: fiveMinutesAgo },
+        });
+        if (existingAlert) {
+          shouldCreate = false;
+        }
+      }
 
-      if (!existingAlert) {
+      if (shouldCreate) {
         await Notification.create({
           serviceId: svc._id,
           serviceName: svc.name,
