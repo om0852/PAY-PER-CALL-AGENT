@@ -2,14 +2,29 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import Notification from "@/lib/models/Notification";
 
+import { runHealthCheckForServices } from "@/lib/x402/healthChecker";
+
 export async function GET() {
   try {
     await connectToDatabase();
 
-    const notifications = await Notification.find()
+    let notifications = await Notification.find()
       .sort({ createdAt: -1 })
       .limit(30)
       .lean();
+
+    // If no notifications exist yet, run health audit to detect degraded services immediately
+    if (notifications.length === 0) {
+      try {
+        await runHealthCheckForServices();
+        notifications = await Notification.find()
+          .sort({ createdAt: -1 })
+          .limit(30)
+          .lean();
+      } catch {
+        // ignore
+      }
+    }
 
     const unreadCount = await Notification.countDocuments({ read: false });
 
@@ -39,7 +54,7 @@ export async function POST(req: Request) {
     await connectToDatabase();
     const body = await req.json();
 
-    if (body.all) {
+    if (body.all || body.action === "MARK_ALL_READ") {
       await Notification.updateMany({ read: false }, { $set: { read: true } });
       return NextResponse.json({ success: true, message: "All notifications marked as read" });
     }

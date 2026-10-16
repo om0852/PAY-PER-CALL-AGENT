@@ -93,6 +93,7 @@ interface NotificationData {
 
 interface LedgerEntry {
   _id: string;
+  id?: string;
   taskId: string;
   buyer: string;
   seller: string;
@@ -222,12 +223,16 @@ export default function Dashboard() {
       }
       if (lRes.ok) {
         const lData = await lRes.json();
-        setLedger(lData.ledger || []);
+        setLedger(lData.ledger || lData.logs || []);
       }
       if (nRes.ok) {
         const nData = await nRes.json();
         setNotifications(nData.notifications || []);
-        setUnreadCount(nData.unreadCount || 0);
+        setUnreadCount(
+          typeof nData.unreadCount === "number"
+            ? nData.unreadCount
+            : (nData.notifications || []).filter((n: any) => !n.read).length
+        );
       }
     } catch {
       setErrorMessage("Could not connect to testnet node or MongoDB");
@@ -274,10 +279,11 @@ export default function Dashboard() {
       await fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "MARK_ALL_READ" }),
+        body: JSON.stringify({ all: true, action: "MARK_ALL_READ" }),
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      triggerToast("All health alerts marked as read");
     } catch {
       // ignore
     }
@@ -446,18 +452,36 @@ export default function Dashboard() {
     triggerToast("Ledger CSV downloaded successfully!");
   };
 
-  // KPIs
+  // KPIs & Dynamic Analytics
   const settledEntries = ledger.filter((e) => e.status === "SETTLED");
+  const failedEntries = ledger.filter((e) => e.status && (e.status.includes("FAILED") || e.status.includes("REJECTED")));
+  const schemaDisputes = ledger.filter((e) => e.status === "FAILED_OUTPUT_REJECTED").length;
   const totalRevenueAtomic = settledEntries.reduce((sum, e) => sum + (e.paidPrice || 0), 0);
   const totalRevenueUsdc = (totalRevenueAtomic / 1_000_000).toFixed(4);
   const totalInvocations = ledger.length;
   const settledCalls = settledEntries.length;
-  const deliveryRate = totalInvocations > 0 ? Math.round((settledCalls / totalInvocations) * 100) : 96;
+  const deliveryRate = totalInvocations > 0 ? Math.round((settledCalls / totalInvocations) * 100) : 100;
 
+  // Real Health & Uptime Status across Registered Endpoints
+  const healthyEndpoints = services.filter(
+    (s) => s.health?.status === "HEALTHY" || !s.health
+  ).length;
+  const degradedEndpoints = services.length - healthyEndpoints;
+  const nodeStatusPct = services.length > 0 ? ((healthyEndpoints / services.length) * 100).toFixed(1) : "100.0";
+
+  // Latencies
   const validLatencies = ledger.map((e) => e.latencyMs).filter((l) => typeof l === "number" && l > 0);
   validLatencies.sort((a, b) => a - b);
-  const medianLatency = validLatencies.length > 0 ? validLatencies[Math.floor(validLatencies.length / 2)] : 65;
-  const p99Latency = validLatencies.length > 0 ? validLatencies[Math.floor(validLatencies.length * 0.99)] || validLatencies[validLatencies.length - 1] : 112;
+  const medianLatency =
+    validLatencies.length > 0
+      ? validLatencies[Math.floor(validLatencies.length / 2)]
+      : services.length > 0
+      ? Math.round(services.reduce((acc, s) => acc + (s.health?.latencyMs || 42), 0) / services.length)
+      : 48;
+  const p99Latency =
+    validLatencies.length > 0
+      ? validLatencies[Math.floor(validLatencies.length * 0.99)] || validLatencies[validLatencies.length - 1]
+      : medianLatency + 28;
 
   // Filtered services
   const filteredServices = services.filter((svc) => {
@@ -592,14 +616,26 @@ export default function Dashboard() {
           <div className="bg-white p-3 rounded-lg shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] flex flex-col gap-1.5 border border-[#d0c5af]/30">
             <div className="flex items-center justify-between text-[10px]">
               <span className="uppercase text-[#5b5e66] font-bold">Node Status</span>
-              <span className="text-[#1b1c1a] font-bold">99.98%</span>
+              <span className={`font-bold font-mono ${degradedEndpoints > 0 ? "text-amber-700" : "text-[#1b1c1a]"}`}>
+                {nodeStatusPct}%
+              </span>
             </div>
             <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
-              <div className="h-full bg-[#d4af37] rounded-full w-[99.98%]"></div>
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  degradedEndpoints > 0 ? "bg-amber-500" : "bg-[#d4af37]"
+                }`}
+                style={{ width: `${nodeStatusPct}%` }}
+              ></div>
             </div>
-            <span className="text-[10px] text-[#4d4635]">
-              All {services.length} endpoints active
-            </span>
+            <div className="flex items-center justify-between text-[10px] text-[#4d4635]">
+              <span>{healthyEndpoints}/{services.length} healthy</span>
+              {degradedEndpoints > 0 ? (
+                <span className="text-amber-700 font-semibold">{degradedEndpoints} degraded</span>
+              ) : (
+                <span className="text-emerald-700 font-semibold">All active</span>
+              )}
+            </div>
           </div>
 
           <nav className="flex flex-col gap-1">
@@ -853,7 +889,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                       <p className="text-[11px] text-[#5b5e66] leading-snug">
-                        Monitoring {services.length} live endpoints • Zero-gas relay active
+                        Monitoring {services.length} live endpoints ({healthyEndpoints} Healthy, {degradedEndpoints} Alerts) • Escrow Relay Active
                       </p>
                     </div>
                   </div>
@@ -914,11 +950,11 @@ export default function Dashboard() {
                     <span className="text-xs font-mono text-[#5b5e66] font-semibold">USDC</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
-                      +18.4%
+                    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono">
+                      {settledCalls} settled
                     </span>
-                    <span className="text-[11px] text-[#4d4635]">
-                      {totalRevenueAtomic.toLocaleString()} atomic units settled
+                    <span className="text-[11px] text-[#4d4635] truncate">
+                      {totalRevenueAtomic.toLocaleString()} atomic units
                     </span>
                   </div>
                 </div>
@@ -945,11 +981,11 @@ export default function Dashboard() {
                     <span className="text-xs font-mono text-[#5b5e66] font-semibold">calls</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded bg-[#d4af37]/20 text-[#554300]">
-                      +3 pending
+                    <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded bg-[#d4af37]/20 text-[#554300] font-mono">
+                      {failedEntries.length} rejected
                     </span>
                     <span className="text-[11px] text-[#4d4635]">
-                      100% automated settlement
+                      {deliveryRate}% SLA delivery
                     </span>
                   </div>
                 </div>
@@ -974,12 +1010,14 @@ export default function Dashboard() {
                       {deliveryRate}%
                     </span>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#ffe088] text-[#241a00]">
-                      ⭐ 4.9/5
+                      {deliveryRate >= 95 ? "⭐ 5.0/5" : deliveryRate >= 80 ? "⭐ 4.5/5" : "⚠️ Degraded"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                    <span className="text-[11px] text-[#4d4635]">0 schema disputes in 7d</span>
+                    <span className={`w-2 h-2 rounded-full ${schemaDisputes > 0 ? "bg-amber-500" : "bg-emerald-600"}`}></span>
+                    <span className="text-[11px] text-[#4d4635]">
+                      {schemaDisputes} schema dispute{schemaDisputes === 1 ? "" : "s"} caught
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1170,22 +1208,43 @@ export default function Dashboard() {
                                     ⚠️ SCHEMA_MISMATCH
                                   </span>
                                 </>
+                              ) : svc.health?.status === "DEGRADED" ? (
+                                <>
+                                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                                  <span className="font-bold text-rose-700">
+                                    DEGRADED ({svc.health.latencyMs}ms)
+                                  </span>
+                                </>
                               ) : (
                                 <>
                                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                  <span className="font-bold text-emerald-700">HEALTHY (51ms)</span>
+                                  <span className="font-bold text-emerald-700">
+                                    HEALTHY ({svc.health?.latencyMs || 42}ms)
+                                  </span>
                                 </>
                               )}
                             </div>
                           </td>
 
-                          <td className="py-3.5 px-4 font-mono font-semibold text-[#1b1c1a]">
-                            {svc.reputation?.totalCalls || 8} calls
-                          </td>
+                          {/* Served Calls - DYNAMIC FROM LEDGER */}
+                          {(() => {
+                            const svcCalls = ledger.filter(
+                              (l) => l.serviceName.toLowerCase() === svc.name.toLowerCase() || l.category === svc.category
+                            );
+                            const svcSettled = svcCalls.filter((l) => l.status === "SETTLED");
+                            const svcRev = svcSettled.reduce((sum, l) => sum + (l.paidPrice || 0), 0);
 
-                          <td className="py-3.5 px-4 font-mono font-bold text-emerald-600">
-                            +${((svc.reputation?.totalCalls || 8) * (svc.price / 1_000_000)).toFixed(4)} USDC
-                          </td>
+                            return (
+                              <>
+                                <td className="py-3.5 px-4 font-mono font-semibold text-[#1b1c1a]">
+                                  {svcCalls.length} calls
+                                </td>
+                                <td className="py-3.5 px-4 font-mono font-bold text-emerald-600">
+                                  +${(svcRev / 1_000_000).toFixed(4)} USDC
+                                </td>
+                              </>
+                            );
+                          })()}
 
                           <td className="py-3.5 px-4">
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -1474,73 +1533,81 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#efeeeb]">
-                    {ledger.slice(0, 15).map((entry) => (
-                      <tr key={entry._id} className="hover:bg-[#f5f3f0]/60 transition-colors">
-                        <td className="py-3 px-4 font-mono text-[#5b5e66] text-[11px]">
-                          {new Date(entry.createdAt).toLocaleTimeString()}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <img
-                              alt="Scout Alpha"
-                              src="/bots/bot-1.svg"
-                              className="w-6 h-6 rounded-full object-cover border border-[#d4af37]/30 shrink-0"
-                            />
-                            <span className="font-bold text-[#1b1c1a]">Scout Alpha</span>
-                            <span className="font-mono text-[#5b5e66] text-[10px]">
-                              ({entry.buyer.slice(0, 5)}...{entry.buyer.slice(-3)})
-                            </span>
-                          </div>
-                        </td>
-
-                        <td className="py-3 px-4 font-semibold text-[#1b1c1a]">
-                          {entry.serviceName}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <span className="inline-flex items-center gap-1 font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
-                            <CheckCircle className="w-3 h-3 text-emerald-600" />
-                            +{(entry.paidPrice / 1_000_000).toFixed(4)} USDC
-                          </span>
-                        </td>
-
-                        <td className="py-3 px-4 font-mono text-[#5b5e66] text-[11px]">
-                          {entry.latencyMs}ms
-                        </td>
-
-                        <td className="py-3 px-4">
-                          {entry.txHash ? (
-                            <Link
-                              href={`/tx/${entry.txHash}`}
-                              className="font-mono text-[#735c00] hover:underline inline-flex items-center gap-1 text-[11px]"
-                            >
-                              <span>
-                                {entry.txHash.slice(0, 6)}...{entry.txHash.slice(-4)}
-                              </span>
-                              <ExternalLink className="w-3 h-3" />
-                            </Link>
-                          ) : (
-                            <span className="font-mono text-[#5b5e66] text-[10px]">Pending</span>
-                          )}
-                        </td>
-
-                        <td className="py-3 px-4">
-                          <span className="text-[10px] bg-[#efeeeb] px-2 py-0.5 rounded text-[#4d4635] font-mono">
-                            EIP-3009 HTTP 402
-                          </span>
+                    {ledger.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-[#5b5e66] text-xs">
+                          No inbound transactions recorded yet. Launch Scout Dispatcher or run the test suite to simulate real micro-settlements.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      ledger.slice(0, 15).map((entry) => (
+                        <tr key={entry._id} className="hover:bg-[#f5f3f0]/60 transition-colors">
+                          <td className="py-3 px-4 font-mono text-[#5b5e66] text-[11px]">
+                            {new Date(entry.createdAt).toLocaleTimeString()}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <img
+                                alt="Scout Alpha"
+                                src="/bots/bot-1.svg"
+                                className="w-6 h-6 rounded-full object-cover border border-[#d4af37]/30 shrink-0"
+                              />
+                              <span className="font-bold text-[#1b1c1a]">Scout Alpha</span>
+                              <span className="font-mono text-[#5b5e66] text-[10px]">
+                                ({entry.buyer.slice(0, 5)}...{entry.buyer.slice(-3)})
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 font-semibold text-[#1b1c1a]">
+                            {entry.serviceName}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <span className="inline-flex items-center gap-1 font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[11px]">
+                              <CheckCircle className="w-3 h-3 text-emerald-600" />
+                              +{(entry.paidPrice / 1_000_000).toFixed(4)} USDC
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 font-mono text-[#5b5e66] text-[11px]">
+                            {entry.latencyMs}ms
+                          </td>
+
+                          <td className="py-3 px-4">
+                            {entry.txHash ? (
+                              <Link
+                                href={`/tx/${entry.txHash}`}
+                                className="font-mono text-[#735c00] hover:underline inline-flex items-center gap-1 text-[11px]"
+                              >
+                                <span>
+                                  {entry.txHash.slice(0, 6)}...{entry.txHash.slice(-4)}
+                                </span>
+                                <ExternalLink className="w-3 h-3" />
+                              </Link>
+                            ) : (
+                              <span className="font-mono text-[#5b5e66] text-[10px]">Pending</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-4">
+                            <span className="text-[10px] bg-[#efeeeb] px-2 py-0.5 rounded text-[#4d4635] font-mono">
+                              EIP-3009 HTTP 402
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-between pt-2 border-t border-[#efeeeb] text-[#4d4635] text-[11px] gap-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span>Escrow Batch: #88219</span>
+                  <span className="font-mono font-semibold">Settled: {settledCalls}/{totalInvocations} calls</span>
                   <span>•</span>
-                  <span>Zero Failed Relays in 24h</span>
+                  <span className="font-mono text-amber-700 font-semibold">Disputes: {schemaDisputes} caught</span>
                   <span>•</span>
                   <span className="text-emerald-700 font-semibold inline-flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

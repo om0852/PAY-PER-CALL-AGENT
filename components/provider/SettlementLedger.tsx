@@ -189,9 +189,13 @@ export default function SettlementLedger({
       {/* Ledger Footer & Settlement Metrics */}
       <div className="flex flex-col sm:flex-row items-center justify-between pt-2 border-t border-[#efeeeb] text-[#4d4635] text-[11px] gap-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <span>Escrow Batch: #88219</span>
+          <span className="font-mono font-semibold">
+            Settled: {transactions.filter((t) => t.status === "SETTLED").length}/{transactions.length} calls
+          </span>
           <span>•</span>
-          <span>Zero Failed Relays in 24h</span>
+          <span className="font-mono text-amber-700 font-semibold">
+            Disputes: {transactions.filter((t) => t.status?.includes("REJECTED") || t.status?.includes("FAILED")).length} caught
+          </span>
           <span>•</span>
           <span className="text-emerald-700 font-semibold inline-flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

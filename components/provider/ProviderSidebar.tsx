@@ -113,14 +113,24 @@ export default function ProviderSidebar({
         <div className="bg-white p-3 rounded-lg shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] flex flex-col gap-1.5 border border-[#d0c5af]/30">
           <div className="flex items-center justify-between text-[10px]">
             <span className="uppercase text-[#5b5e66] font-bold">Node Status</span>
-            <span className="text-[#1b1c1a] font-bold">99.98%</span>
+            <span className="text-[#1b1c1a] font-bold font-mono">
+              {totalEndpoints > 0 ? ((healthyCount / totalEndpoints) * 100).toFixed(1) : "100.0"}%
+            </span>
           </div>
           <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
-            <div className="h-full bg-[#d4af37] rounded-full w-[99.98%]"></div>
+            <div
+              className="h-full bg-[#d4af37] rounded-full transition-all duration-500"
+              style={{
+                width: `${totalEndpoints > 0 ? Math.round((healthyCount / totalEndpoints) * 100) : 100}%`,
+              }}
+            ></div>
           </div>
-          <span className="text-[10px] text-[#4d4635]">
-            All {healthyCount} endpoints active
-          </span>
+          <div className="text-[10px] text-[#4d4635] flex items-center justify-between">
+            <span>{healthyCount}/{totalEndpoints} healthy</span>
+            {totalEndpoints - healthyCount > 0 && (
+              <span className="text-amber-700 font-semibold">{totalEndpoints - healthyCount} degraded</span>
+            )}
+          </div>
         </div>
 
         <nav className="flex flex-col gap-1">

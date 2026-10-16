@@ -47,8 +47,14 @@ const EIP3009_TYPES = {
   ],
 };
 
+const createdNonces = [];
+const createdTxHashes = [];
+const createdTaskIds = [];
+
 function generateNonce() {
-  return "0x" + crypto.randomBytes(32).toString("hex");
+  const n = "0x" + crypto.randomBytes(32).toString("hex");
+  createdNonces.push(n);
+  return n;
 }
 
 let passed = 0;
@@ -173,6 +179,7 @@ async function runTests() {
     assert(paymentReceipt.settled === true, "3b. Settlement confirmed in response header");
     assert(typeof paymentReceipt.txHash === "string" && paymentReceipt.txHash.startsWith("0x"), "3b. Valid transaction hash generated");
     latestTxHash = paymentReceipt.txHash;
+    if (paymentReceipt.txHash) createdTxHashes.push(paymentReceipt.txHash);
 
     const books = await resPaid.json();
     assert(Array.isArray(books) && books.length > 0, "3b. Cheerio scraper returns parsed book items", `items: ${books.length}`);
@@ -368,6 +375,12 @@ async function runTests() {
     assert(agentRes.status === 200, "10. POST /api/buyer/run initiates and executes autonomous agent flow");
     const agentOutcome = await agentRes.json();
     assert(agentOutcome.taskId && agentOutcome.taskId.startsWith("task-"), "10. Returns unique taskId");
+    if (agentOutcome.taskId) createdTaskIds.push(agentOutcome.taskId);
+    if (Array.isArray(agentOutcome.purchases)) {
+      agentOutcome.purchases.forEach((p) => {
+        if (p.txHash) createdTxHashes.push(p.txHash);
+      });
+    }
     assert(agentOutcome.totalSpent <= agentOutcome.budgetLimit, "10. Strict Budget Enforcement: totalSpent <= budgetLimit");
     assert(Array.isArray(agentOutcome.purchases) && agentOutcome.purchases.length >= 3, "10. Multi-step plan executed >= 3 service calls");
     
@@ -403,6 +416,31 @@ async function runTests() {
     } catch (err) {
       assert(false, "12. Micro-Explorer test error", err.message);
     }
+  }
+
+  // TEARDOWN (OPTION 1): Clean up test artifacts so MongoDB stays pristine
+  const keepData = process.argv.includes("--keep-data");
+  if (!keepData) {
+    try {
+      const teardownRes = await fetch(`${BASE_URL}/api/test/teardown`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nonces: createdNonces,
+          txHashes: createdTxHashes,
+          taskIds: createdTaskIds,
+          buyerAddress,
+        }),
+      });
+      if (teardownRes.ok) {
+        const tdData = await teardownRes.json();
+        console.log(`\n\x1b[36m🧹 OPTION 1 TEARDOWN COMPLETE:\x1b[0m Cleaned up ${tdData.cleaned?.authorizations ?? 0} authorizations, ${tdData.cleaned?.transfers ?? 0} transfers, ${tdData.cleaned?.ledgerEntries ?? 0} ledger records. Buyer wallet balance restored.`);
+      }
+    } catch (tdErr) {
+      console.warn("Teardown warning:", tdErr.message);
+    }
+  } else {
+    console.log(`\n\x1b[33mℹ TEARDOWN SKIPPED (--keep-data flag active): Test records preserved in database.\x1b[0m`);
   }
 
   // FINAL SUMMARY REPORT

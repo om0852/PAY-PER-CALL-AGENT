@@ -335,9 +335,9 @@ export default function ProviderStudioPage() {
                 iconColor="text-[#735c00]"
                 value={`$${metrics.totalRevenueUsdc}`}
                 unit="USDC"
-                trendText="+18.4%"
+                trendText={`${metrics.settledCalls} settled`}
                 trendPositive={true}
-                subtext={`${metrics.totalRevenueAtomic.toLocaleString()} atomic units settled`}
+                subtext={`${metrics.totalRevenueAtomic.toLocaleString()} atomic units`}
               />
 
               {/* Card 2: Total Invocations */}
@@ -349,9 +349,9 @@ export default function ProviderStudioPage() {
                 iconColor="text-[#1b1c1a]"
                 value={String(metrics.totalInvocations)}
                 unit="calls"
-                trendText={`+${metrics.pendingCalls} pending`}
-                trendPositive={false}
-                subtext="100% automated settlement"
+                trendText={`${metrics.schemaDisputes} rejected`}
+                trendPositive={metrics.schemaDisputes === 0}
+                subtext={`${metrics.deliveryRate}% SLA delivery`}
               />
 
               {/* Card 3: Reputation & SLA */}
@@ -363,8 +363,8 @@ export default function ProviderStudioPage() {
                 iconColor="text-emerald-600"
                 value={`${metrics.deliveryRate}%`}
                 trendText={`⭐ ${metrics.reputationScore}/5`}
-                trendPositive={true}
-                subtext={`${metrics.schemaDisputes} schema disputes in 7d`}
+                trendPositive={Number(metrics.deliveryRate) >= 80}
+                subtext={`${metrics.schemaDisputes} schema dispute${metrics.schemaDisputes === 1 ? "" : "s"} caught`}
               />
 
               {/* Card 4: Median Latency */}
