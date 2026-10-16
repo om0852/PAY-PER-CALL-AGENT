@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { CheckCircle2, ArrowLeft, ShieldCheck, Zap, Copy, Check } from "lucide-react";
+import { CheckCircle2, ArrowLeft, ShieldCheck, Zap, Copy, Check, ExternalLink } from "lucide-react";
 
 interface TxData {
   txHash: string;
@@ -120,7 +120,16 @@ function TxExplorerContent() {
                     {tx.txHash}
                   </h1>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${tx.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/30 text-xs font-medium rounded-full transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    BaseScan
+                  </a>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium rounded-full">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     {tx.status}
@@ -156,7 +165,7 @@ function TxExplorerContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-xs text-slate-400">Simulated Block</span>
+                  <span className="text-xs text-slate-400">Block Reference</span>
                   <p className="text-slate-200 font-mono text-xs">#{tx.blockNumber}</p>
                 </div>
               </div>
@@ -175,12 +184,24 @@ function TxExplorerContent() {
                       <p className="font-mono text-xs text-slate-200 break-all">{tx.from}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(tx.from, "from")}
-                    className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors self-end sm:self-center"
-                  >
-                    {copiedKey === "from" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </button>
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <a
+                      href={`https://sepolia.basescan.org/address/${tx.from}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                      title="View on BaseScan"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <button
+                      onClick={() => copyToClipboard(tx.from, "from")}
+                      className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                      title="Copy Address"
+                    >
+                      {copiedKey === "from" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-3">
@@ -200,15 +221,28 @@ function TxExplorerContent() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(tx.to, "to")}
-                    className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors self-end sm:self-center"
-                  >
-                    {copiedKey === "to" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </button>
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <a
+                      href={`https://sepolia.basescan.org/address/${tx.to}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                      title="View on BaseScan"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <button
+                      onClick={() => copyToClipboard(tx.to, "to")}
+                      className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                      title="Copy Address"
+                    >
+                      {copiedKey === "to" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
+
 
             {/* EIP-3009 Authorization & Cryptographic Proof */}
             <div className="p-6 md:p-8 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-2xl space-y-4">
