@@ -48,6 +48,7 @@ import {
 
 import SchemaModal from "@/components/provider/SchemaModal";
 import RegisterServiceModal from "@/components/provider/RegisterServiceModal";
+import ServiceRatingModal from "@/components/provider/ServiceRatingModal";
 
 interface WalletData {
   _id: string;
@@ -212,6 +213,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isSchemaModalOpen, setIsSchemaModalOpen] = useState(false);
   const [selectedServiceForSchema, setSelectedServiceForSchema] = useState<ServiceData | null>(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [selectedServiceForRating, setSelectedServiceForRating] = useState<ServiceData | null>(null);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1897,17 +1900,25 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                                 >
                                   {svc.health?.message || "Endpoint verified. x402 challenge valid"}
                                 </span>
-                                <div className="flex items-center gap-1.5 mt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedServiceForRating(svc);
+                                    setIsRatingModalOpen(true);
+                                  }}
+                                  className="flex items-center gap-1.5 mt-0.5 hover:opacity-80 transition-all group/star cursor-pointer text-left"
+                                  title="Click to inspect rating & reviews"
+                                >
                                   <div className="flex items-center text-[#d4af37]">
                                     <Star className="w-3 h-3 fill-[#d4af37]" />
                                     <span className="text-[10px] font-bold font-mono ml-0.5 text-[#735c00]">
                                       {(svc.averageUserRating || 5.0).toFixed(1)}
                                     </span>
                                   </div>
-                                  <span className="text-[9px] text-[#5b5e66]">
-                                    ({svc.totalRatingsCount || 0} user reviews)
+                                  <span className="text-[9px] text-[#5b5e66] group-hover/star:text-[#735c00] group-hover/star:underline">
+                                    ({svc.totalRatingsCount || 0} user reviews) ↗
                                   </span>
-                                </div>
+                                </button>
                               </div>
                             </td>
 
@@ -1938,6 +1949,17 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
                             <td className="py-3.5 px-4 text-right">
                               <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedServiceForRating(svc);
+                                    setIsRatingModalOpen(true);
+                                  }}
+                                  className="p-1.5 rounded-lg text-[#5b5e66] hover:text-[#d4af37] hover:bg-[#efeeeb] transition-colors"
+                                  title="Audit Quality Ratings & Reviews"
+                                  type="button"
+                                >
+                                  <Star className="w-4 h-4 fill-[#d4af37]/20" />
+                                </button>
                                 <button
                                   onClick={() => handlePing(svc)}
                                   className="p-1.5 rounded-lg text-[#5b5e66] hover:text-[#1b1c1a] hover:bg-[#efeeeb] transition-colors"
@@ -4176,6 +4198,17 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
         onSuccess={(newSvc) => {
           triggerToast(`Service "${newSvc.name}" registered successfully!`);
           refreshAllData();
+        }}
+      />
+
+      {/* Service Quality & Telemetry Rating Modal */}
+      <ServiceRatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => setIsRatingModalOpen(false)}
+        service={selectedServiceForRating}
+        onRateSubmitted={async (rating) => {
+          triggerToast(`⭐ Recorded ${rating}/5 rating for ${selectedServiceForRating?.name || "service"}!`);
+          await refreshAllData();
         }}
       />
     </div>

@@ -8,8 +8,17 @@ export async function GET(req: Request) {
     await connectToDatabase();
     const { searchParams } = new URL(req.url);
     const taskId = searchParams.get("taskId");
+    const serviceName = searchParams.get("serviceName");
+    const seller = searchParams.get("seller");
 
-    const query = taskId ? { taskId } : {};
+    const query: Record<string, unknown> = {};
+    if (taskId) query.taskId = taskId;
+    if (serviceName) {
+      query.serviceName = { $regex: new RegExp(`^${serviceName}$`, "i") };
+    }
+    if (seller) {
+      query.seller = seller.toLowerCase();
+    }
     const rawLogs = await Ledger.find(query).sort({ createdAt: -1 }).limit(100).lean();
     const logs = rawLogs.map((l) => ({
       ...l,
