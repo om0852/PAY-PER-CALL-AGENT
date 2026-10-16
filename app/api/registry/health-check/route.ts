@@ -39,7 +39,7 @@ export async function GET() {
         endpoint: s.endpoint,
         price: s.price,
         health: s.health || {
-          status: "HEALTHY",
+          status: "DOWN",
           lastChecked: new Date(),
           latencyMs: 0,
           message: "Awaiting initial audit",

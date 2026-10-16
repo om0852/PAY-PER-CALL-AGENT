@@ -13,6 +13,7 @@ import {
   FileCode,
   FileText,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
 export interface ManagedServiceItem {
@@ -40,6 +41,7 @@ interface ServicesTableProps {
   onInspectSchema: (service: ManagedServiceItem) => void;
   onViewLogs?: (service: ManagedServiceItem) => void;
   onToggleActive?: (serviceId: string, currentStatus: boolean) => void;
+  onDeleteService?: (service: ManagedServiceItem) => void;
   onCopyToast?: (msg: string) => void;
 }
 
@@ -49,6 +51,7 @@ export default function ServicesTable({
   onInspectSchema,
   onViewLogs,
   onToggleActive,
+  onDeleteService,
   onCopyToast,
 }: ServicesTableProps) {
   const [filterTab, setFilterTab] = useState<"all" | "active" | "degraded">("all");
@@ -275,11 +278,25 @@ export default function ServicesTable({
                               ⚠️ SCHEMA_MISMATCH
                             </span>
                           </>
+                        ) : svc.health.status === "DEGRADED" ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                            <span className="font-bold text-rose-700">
+                              DEGRADED ({svc.health.latencyMs}ms)
+                            </span>
+                          </>
+                        ) : svc.health.status === "DOWN" ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                            <span className="font-bold text-rose-600">
+                              OFFLINE (DOWN)
+                            </span>
+                          </>
                         ) : (
                           <>
-                            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                            <span className="font-bold text-rose-700">
-                              {svc.health.status}
+                            <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                            <span className="font-bold text-gray-500">
+                              UNVERIFIED
                             </span>
                           </>
                         )}
@@ -338,6 +355,16 @@ export default function ServicesTable({
                         >
                           <FileText className="w-4 h-4" />
                         </button>
+                        {onDeleteService && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteService(svc)}
+                            className="p-1 hover:text-rose-600 text-[#5b5e66] transition-colors"
+                            title={`Delete ${svc.name}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import Service from "@/lib/models/Service";
 import Ledger from "@/lib/models/Ledger";
 import { ensureSeededData } from "@/lib/x402/seed";
+import { runHealthCheckForServices } from "@/lib/x402/healthChecker";
 
 export async function GET(req: Request) {
   try {
@@ -63,10 +64,10 @@ export async function GET(req: Request) {
           schema: svc.schema,
           active: svc.active,
           health: svc.health || {
-            status: "HEALTHY",
+            status: "DOWN",
             lastChecked: new Date(),
             latencyMs: 0,
-            message: "Operational",
+            message: "Awaiting initial health audit",
           },
           reputation: {
             score: reputationScore,
@@ -99,19 +100,67 @@ export async function POST(req: Request) {
       );
     }
 
+    const trimmedEndpoint = String(endpoint).trim();
+
     const newService = await Service.create({
-      name,
+      name: String(name).trim(),
       category,
-      endpoint,
+      endpoint: trimmedEndpoint,
       price: Number(price),
       asset: asset || "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
       network: network || "eip155:84532",
       payTo: payTo.toLowerCase(),
       schema: schema || {},
       active: true,
+      health: {
+        status: "DOWN",
+        lastChecked: new Date(),
+        latencyMs: 0,
+        message: "Verifying endpoint...",
+      },
     });
 
-    return NextResponse.json({ service: newService }, { status: 201 });
+    // Run health check right away so this service is immediately classified correctly
+    try {
+      await runHealthCheckForServices();
+    } catch {
+      // non-fatal
+    }
+
+    const verifiedService = await Service.findById(newService._id).lean();
+
+    return NextResponse.json({ service: verifiedService || newService }, { status: 201 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    await connectToDatabase();
+    const { searchParams } = new URL(req.url);
+    let id = searchParams.get("id");
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body.id || body.serviceId;
+      } catch {}
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing service id to delete" }, { status: 400 });
+    }
+
+    const deleted = await Service.findByIdAndDelete(id);
+    if (!deleted) {
+      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Service "${deleted.name}" deleted successfully`,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });

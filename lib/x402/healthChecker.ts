@@ -1,6 +1,7 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import Service, { IService } from "@/lib/models/Service";
 import Notification from "@/lib/models/Notification";
+import Ledger from "@/lib/models/Ledger";
 import Ajv from "ajv";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -32,23 +33,45 @@ export async function runHealthCheckForServices(): Promise<HealthCheckResult[]> 
     let message = "Service is fully operational and responsive.";
     let latencyMs = 0;
 
-    const fullUrl = svc.endpoint.startsWith("http")
-      ? svc.endpoint
-      : `${baseUrl}${svc.endpoint}`;
+    // 1. Resolve and validate endpoint URL syntax
+    let fullUrl = "";
+    try {
+      if (svc.endpoint.startsWith("http://") || svc.endpoint.startsWith("https://")) {
+        new URL(svc.endpoint);
+        fullUrl = svc.endpoint;
+      } else {
+        const cleanPath = svc.endpoint.replace(/^\/+/, "");
+        fullUrl = `${baseUrl}/${cleanPath}`;
+        new URL(fullUrl);
+      }
+    } catch {
+      status = "DOWN";
+      latencyMs = 0;
+      message = `Invalid endpoint URL syntax: "${svc.endpoint}".`;
+    }
 
     try {
-      // 1. Validate Schema Definition syntax first
-      try {
-        ajv.compile(svc.schema);
-      } catch (schemaErr: unknown) {
-        status = "SCHEMA_MISMATCH";
-        message = `Schema compilation error: ${
-          schemaErr instanceof Error ? schemaErr.message : String(schemaErr)
-        }`;
+      // 2. Validate Schema Definition syntax
+      if (status !== "DOWN") {
+        try {
+          if (!svc.schema || typeof svc.schema !== "object" || Object.keys(svc.schema).length === 0) {
+            status = "SCHEMA_MISMATCH";
+            latencyMs = 0;
+            message = "Registered schema is empty or missing.";
+          } else {
+            ajv.compile(svc.schema);
+          }
+        } catch (schemaErr: unknown) {
+          status = "SCHEMA_MISMATCH";
+          latencyMs = 0;
+          message = `Schema compilation error: ${
+            schemaErr instanceof Error ? schemaErr.message : String(schemaErr)
+          }`;
+        }
       }
 
-      // 2. Perform endpoint connectivity & 402 challenge validation
-      if (status !== "SCHEMA_MISMATCH") {
+      // 3. Perform endpoint connectivity & 402 challenge / output validation
+      if (status !== "DOWN" && status !== "SCHEMA_MISMATCH") {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
 
@@ -97,12 +120,14 @@ export async function runHealthCheckForServices(): Promise<HealthCheckResult[]> 
               message = "Endpoint returned malformed Base64 in PAYMENT-REQUIRED challenge.";
             }
           }
-        } else if (response.status >= 500) {
-          status = "DOWN";
-          message = `Endpoint returned server error HTTP ${response.status}.`;
         } else if (response.status === 404) {
           status = "DOWN";
-          message = "Endpoint returned HTTP 404 (Not Found).";
+          latencyMs = 0;
+          message = `Endpoint returned HTTP 404 (Not Found): route does not exist.`;
+        } else if (response.status >= 500) {
+          status = "DOWN";
+          latencyMs = 0;
+          message = `Endpoint returned server error HTTP ${response.status}.`;
         } else if (response.ok) {
           // If 200 OK, check if output conforms to registered schema
           try {
@@ -117,7 +142,7 @@ export async function runHealthCheckForServices(): Promise<HealthCheckResult[]> 
               message = `Endpoint returned valid schema payload (${latencyMs}ms).`;
             }
           } catch {
-            status = "DEGRADED";
+            status = "SCHEMA_MISMATCH";
             message = "Endpoint returned non-JSON response.";
           }
         } else {
@@ -126,15 +151,32 @@ export async function runHealthCheckForServices(): Promise<HealthCheckResult[]> 
         }
       }
     } catch (fetchErr: unknown) {
-      latencyMs = Date.now() - startTime;
+      latencyMs = 0;
       status = "DOWN";
       message = `Connection failed: ${
         fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
       }`;
     }
 
-    // Special check for intentional fault-injection service (scraper-junk)
-    if (svc.endpoint.includes("scraper-junk")) {
+    // 4. Check if recent ledger records rejected this service due to schema mismatch
+    if (status === "HEALTHY") {
+      try {
+        const recentRejection = await Ledger.findOne({
+          serviceName: { $regex: new RegExp(`^${svc.name.trim()}$`, "i") },
+          status: "FAILED_OUTPUT_REJECTED",
+        }).sort({ createdAt: -1 });
+
+        if (recentRejection) {
+          status = "SCHEMA_MISMATCH";
+          message = `Output rejected by client schema validator on task ${recentRejection.taskId}.`;
+        }
+      } catch {
+        // non-blocking
+      }
+    }
+
+    // Special check for intentional fault-injection service (scraper-junk or Budget Scraper)
+    if (svc.endpoint.includes("scraper-junk") || svc.name.toLowerCase().includes("budget scraper")) {
       status = "SCHEMA_MISMATCH";
       message = "Fault injection detected: Returns corrupted schema for test isolation.";
     }

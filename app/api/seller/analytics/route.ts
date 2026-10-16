@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     // 5. Calculate per-service stats
     const serviceStats = services.map((svc) => {
       const svcCalls = activeLedger.filter(
-        (e) => e.serviceName.toLowerCase() === svc.name.toLowerCase() || e.category === svc.category
+        (e) => e.serviceName && e.serviceName.toLowerCase() === svc.name.toLowerCase()
       );
       const svcRevenueAtomic = svcCalls
         .filter((e) => e.status === "SETTLED")
@@ -66,10 +66,10 @@ export async function GET(request: Request) {
         priceAtomic: svc.price,
         active: svc.active !== false,
         health: svc.health || {
-          status: "HEALTHY",
-          latencyMs: 44,
+          status: "DOWN",
+          latencyMs: 0,
           lastChecked: new Date(),
-          message: "All health checks passed",
+          message: "Awaiting initial health audit",
         },
         callsCount: svcCalls.length,
         revenueUsdc: (svcRevenueAtomic / 1_000_000).toFixed(4),

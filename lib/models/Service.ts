@@ -69,7 +69,7 @@ const ServiceSchema = new Schema<IService>(
       status: {
         type: String,
         enum: ["HEALTHY", "DEGRADED", "DOWN", "SCHEMA_MISMATCH"],
-        default: "HEALTHY",
+        default: "DOWN",
       },
       lastChecked: {
         type: Date,
@@ -81,7 +81,7 @@ const ServiceSchema = new Schema<IService>(
       },
       message: {
         type: String,
-        default: "Service operational",
+        default: "Awaiting initial health audit",
       },
     },
     active: {

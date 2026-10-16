@@ -42,6 +42,7 @@ import {
   RefreshCw,
   HelpCircle,
   BookOpen,
+  Trash2,
 } from "lucide-react";
 
 import SchemaModal from "@/components/provider/SchemaModal";
@@ -406,19 +407,44 @@ export default function Dashboard() {
     triggerToast(`Pinging ${svc.name}...`);
     try {
       const startTime = performance.now();
-      const res = await fetch(svc.endpoint, {
+      const endpointUrl = svc.endpoint.startsWith("http")
+        ? svc.endpoint
+        : svc.endpoint.startsWith("/")
+        ? svc.endpoint
+        : `/${svc.endpoint}`;
+
+      const res = await fetch(endpointUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: "ping", test: true }),
       });
       const latency = Math.round(performance.now() - startTime);
       if (res.status === 402) {
-        triggerToast(`Ping ${svc.name}: HTTP 402 Payment Challenge OK (${latency}ms)`);
+        triggerToast(`Ping ${svc.name}: HTTP 402 Challenge OK (${latency}ms)`);
+      } else if (res.status === 404) {
+        triggerToast(`Ping ${svc.name}: HTTP 404 Not Found (Invalid route)`);
       } else {
         triggerToast(`Ping ${svc.name}: HTTP ${res.status} (${latency}ms)`);
       }
-    } catch {
-      triggerToast(`Ping ${svc.name}: Connection timeout`);
+    } catch (err: unknown) {
+      triggerToast(`Ping ${svc.name}: Connection failed (${err instanceof Error ? err.message : "Error"})`);
+    }
+  };
+
+  // Delete service
+  const handleDeleteService = async (serviceId: string, serviceName: string) => {
+    if (!confirm(`Are you sure you want to delete service "${serviceName}"?`)) return;
+    try {
+      const res = await fetch(`/api/registry/services?id=${serviceId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete service");
+      triggerToast(`Service "${serviceName}" deleted.`);
+      await refreshAllData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      triggerToast(`Delete failed: ${msg}`);
     }
   };
 
@@ -464,7 +490,7 @@ export default function Dashboard() {
 
   // Real Health & Uptime Status across Registered Endpoints
   const healthyEndpoints = services.filter(
-    (s) => s.health?.status === "HEALTHY" || !s.health
+    (s) => s.health?.status === "HEALTHY"
   ).length;
   const degradedEndpoints = services.length - healthyEndpoints;
   const nodeStatusPct = services.length > 0 ? ((healthyEndpoints / services.length) * 100).toFixed(1) : "100.0";
@@ -1215,11 +1241,18 @@ export default function Dashboard() {
                                     DEGRADED ({svc.health.latencyMs}ms)
                                   </span>
                                 </>
+                              ) : svc.health?.status === "DOWN" ? (
+                                <>
+                                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                                  <span className="font-bold text-rose-600">
+                                    OFFLINE (DOWN)
+                                  </span>
+                                </>
                               ) : (
                                 <>
-                                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                  <span className="font-bold text-emerald-700">
-                                    HEALTHY ({svc.health?.latencyMs || 42}ms)
+                                  <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                  <span className="font-bold text-gray-500">
+                                    UNVERIFIED
                                   </span>
                                 </>
                               )}
@@ -1229,7 +1262,7 @@ export default function Dashboard() {
                           {/* Served Calls - DYNAMIC FROM LEDGER */}
                           {(() => {
                             const svcCalls = ledger.filter(
-                              (l) => l.serviceName.toLowerCase() === svc.name.toLowerCase() || l.category === svc.category
+                              (l) => l.serviceName && l.serviceName.toLowerCase() === svc.name.toLowerCase()
                             );
                             const svcSettled = svcCalls.filter((l) => l.status === "SETTLED");
                             const svcRev = svcSettled.reduce((sum, l) => sum + (l.paidPrice || 0), 0);
@@ -1280,6 +1313,13 @@ export default function Dashboard() {
                                 title="Inspect Schema"
                               >
                                 <FileCode className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteService(svc.id, svc.name)}
+                                className="p-1 hover:text-rose-600 text-[#5b5e66] transition-colors"
+                                title={`Delete ${svc.name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>

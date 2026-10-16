@@ -112,7 +112,13 @@ export default function ProviderStudioPage() {
     triggerToast(`Pinging ${svc.name}... Sending health challenge`);
     try {
       const startTime = performance.now();
-      const res = await fetch(svc.endpoint, {
+      const endpointUrl = svc.endpoint.startsWith("http")
+        ? svc.endpoint
+        : svc.endpoint.startsWith("/")
+        ? svc.endpoint
+        : `/${svc.endpoint}`;
+
+      const res = await fetch(endpointUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: "ping", test: true }),
@@ -123,11 +129,30 @@ export default function ProviderStudioPage() {
         triggerToast(`Pinging ${svc.name}: HTTP 402 Payment Challenge OK (${latency}ms)`);
       } else if (res.ok) {
         triggerToast(`Pinging ${svc.name}: 200 OK (${latency}ms)`);
+      } else if (res.status === 404) {
+        triggerToast(`Pinging ${svc.name}: HTTP 404 Route Not Found`);
       } else {
         triggerToast(`Pinging ${svc.name}: Status ${res.status} (${latency}ms)`);
       }
-    } catch {
-      triggerToast(`Pinging ${svc.name}: Connection timeout / failed`);
+    } catch (err: unknown) {
+      triggerToast(`Pinging ${svc.name}: Connection failed (${err instanceof Error ? err.message : "Error"})`);
+    }
+  };
+
+  // Delete Service
+  const handleDeleteService = async (svc: ManagedServiceItem) => {
+    if (!confirm(`Are you sure you want to delete service "${svc.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/registry/services?id=${svc.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete service");
+      triggerToast(`Service "${svc.name}" deleted.`);
+      await fetchAnalytics(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      triggerToast(`Delete failed: ${msg}`);
     }
   };
 
@@ -395,6 +420,7 @@ export default function ProviderStudioPage() {
                 );
                 triggerToast(`Endpoint status updated`);
               }}
+              onDeleteService={handleDeleteService}
               onCopyToast={triggerToast}
             />
 
