@@ -1,67 +1,673 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import {
+  ShieldCheck,
+  Zap,
+  RotateCw,
+  ExternalLink,
+  Wallet as WalletIcon,
+  Activity,
+  Layers,
+  ArrowRight,
+  TrendingUp,
+  AlertTriangle,
+  FileText,
+  DollarSign,
+} from "lucide-react";
+
+interface WalletData {
+  _id: string;
+  address: string;
+  balance: number;
+  role: "buyer" | "seller" | "facilitator";
+  label: string;
+}
+
+interface ServiceData {
+  id: string;
+  name: string;
+  category: string;
+  endpoint: string;
+  price: number;
+  payTo: string;
+  reputation: {
+    score: number;
+    successRate: number;
+    medianLatencyMs: number;
+    totalCalls: number;
+    rejectedCalls: number;
+  };
+}
+
+interface LedgerEntry {
+  _id: string;
+  taskId: string;
+  buyer: string;
+  seller: string;
+  serviceName: string;
+  category: string;
+  listedPrice: number;
+  askedPrice: number;
+  paidPrice: number;
+  txHash: string | null;
+  status:
+    | "SETTLED"
+    | "REFUSED_PRICE_MISMATCH"
+    | "FAILED_OUTPUT_REJECTED"
+    | "FAILED_DOWNSTREAM";
+  latencyMs: number;
+  createdAt: string;
+}
+
+interface StreamEvent {
+  stepId: string;
+  type: string;
+  message: string;
+  timestamp: number;
+  details?: Record<string, unknown>;
+}
+
+export default function Dashboard() {
+  const [taskPrompt, setTaskPrompt] = useState(
+    "Scrape travel books from catalogue, fetch GBP to INR exchange rate, and summarize recommendations in Hindi"
+  );
+  const [budgetUsdc, setBudgetUsdc] = useState<number>(0.5);
+  const [concurrency, setConcurrency] = useState<number>(3);
+  const [isRunning, setIsRunning] = useState(false);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+
+  // Live Stream Events
+  const [events, setEvents] = useState<StreamEvent[]>([]);
+  const [runSummary, setRunSummary] = useState<Record<string, unknown> | null>(null);
+
+  // Data states
+  const [wallets, setWallets] = useState<WalletData[]>([]);
+  const [services, setServices] = useState<ServiceData[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Load all data from API endpoints
+  const refreshAllData = async () => {
+    setLoadingData(true);
+    try {
+      const [wRes, sRes, lRes] = await Promise.all([
+        fetch("/api/wallets"),
+        fetch("/api/registry/services"),
+        fetch("/api/ledger"),
+      ]);
+
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        setWallets(wData.wallets || []);
+      }
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        setServices(sData.services || []);
+      }
+      if (lRes.ok) {
+        const lData = await lRes.json();
+        setLedger(lData.logs || []);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(msg);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshAllData();
+  }, []);
+
+  // Launch Buyer Agent
+  const handleLaunchAgent = async () => {
+    if (!taskPrompt.trim() || isRunning) return;
+
+    setIsRunning(true);
+    setEvents([]);
+    setRunSummary(null);
+    setErrorMessage(null);
+
+    // Atomic budget in integer units (1 USDC = 1,000,000 units)
+    const budgetAtomicUnits = Math.round(budgetUsdc * 1_000_000);
+
+    try {
+      // Connect to SSE stream
+      const tempTaskId = "task-" + Math.random().toString(36).substring(2, 10);
+      setCurrentTaskId(tempTaskId);
+
+      const sse = new EventSource(`/api/buyer/stream?taskId=${tempTaskId}`);
+      eventSourceRef.current = sse;
+
+      sse.onmessage = (e) => {
+        try {
+          const parsed = JSON.parse(e.data);
+          if (parsed.type && parsed.type !== "CONNECTED") {
+            setEvents((prev) => [...prev, parsed]);
+          }
+        } catch {
+          // ignore
+        }
+      };
+
+      // Call buyer run API
+      const response = await fetch("/api/buyer/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          task: taskPrompt,
+          budget: budgetAtomicUnits,
+          maxConcurrency: concurrency,
+        }),
+      });
+
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.error || "Failed to execute agent task");
+      }
+
+      setRunSummary(resData);
+      refreshAllData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsRunning(false);
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      refreshAllData();
+    }
+  };
+
+  const setTaskPreset = (text: string, budget: number) => {
+    setTaskPrompt(text);
+    setBudgetUsdc(budget);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Top Navbar */}
+      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+              x402
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                Pay-Per-Call Agent Platform
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  v2 Protocol
+                </span>
+              </h1>
+              <p className="text-xs text-slate-400">
+                EIP-712 / EIP-3009 Cryptographic Micropayments with Dynamic Reputation & Fallback
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Simulated Chain (Offline Viem Signatures)
+            </span>
+            <button
+              onClick={refreshAllData}
+              disabled={loadingData}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors text-xs flex items-center gap-1.5"
+              title="Refresh ledger and wallet balances"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <RotateCw className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`} />
+              Sync
+            </button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-8">
+        {errorMessage && (
+          <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800/80 text-rose-300 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+              <p className="text-sm font-medium">{errorMessage}</p>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-xs text-rose-400 hover:text-rose-200"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Top Grid: Task Dispatcher & Live Run Stream */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Dispatcher Panel (5 cols) */}
+          <div className="lg:col-span-5 rounded-2xl bg-slate-900/70 border border-slate-800 p-6 flex flex-col justify-between shadow-xl backdrop-blur-md">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-indigo-400" />
+                  Buyer Agent Dispatcher
+                </h2>
+                <span className="text-xs text-slate-500 font-mono">Autonomous Planner</span>
+              </div>
+
+              {/* Task Textarea */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">
+                  Task Instruction Prompt
+                </label>
+                <textarea
+                  value={taskPrompt}
+                  onChange={(e) => setTaskPrompt(e.target.value)}
+                  disabled={isRunning}
+                  rows={3}
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-mono"
+                  placeholder="Describe what the agent should query, process, or synthesize..."
+                />
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Judge Demo Presets
+                </span>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTaskPreset(
+                        "Scrape travel books from catalogue, fetch GBP to INR exchange rate, and summarize recommendations in Hindi",
+                        0.5
+                      )
+                    }
+                    className="text-left text-xs p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800/80 transition-colors flex items-center justify-between text-slate-300 hover:text-white"
+                  >
+                    <span>🎯 Full 3-Service Pipeline (Scrape + FX + Hindi)</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">$0.50</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTaskPreset(
+                        "Scrape catalogue with cheap scraper to test Ajv output schema rejection and automatic fallback recovery",
+                        0.25
+                      )
+                    }
+                    className="text-left text-xs p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800/80 transition-colors flex items-center justify-between text-slate-300 hover:text-white"
+                  >
+                    <span>🛡️ Fallback Test (Corrupt Schema Recovery)</span>
+                    <span className="text-[10px] text-amber-400 font-mono">$0.25</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTaskPreset(
+                        "Concurrent scrape and translation task testing strict atomic budget limit enforcement",
+                        0.04
+                      )
+                    }
+                    className="text-left text-xs p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800/80 transition-colors flex items-center justify-between text-slate-300 hover:text-white"
+                  >
+                    <span>⚡ Budget Exhaustion Test (Tight Cap Refusal)</span>
+                    <span className="text-[10px] text-rose-400 font-mono">$0.04</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Controls: Budget & Concurrency */}
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">Budget Limit (USDC)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs text-slate-500 font-mono">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={budgetUsdc}
+                      onChange={(e) => setBudgetUsdc(parseFloat(e.target.value) || 0.1)}
+                      disabled={isRunning}
+                      className="w-full rounded-lg bg-slate-950 border border-slate-800 pl-7 pr-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Max Concurrency ({concurrency})
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={concurrency}
+                    onChange={(e) => setConcurrency(parseInt(e.target.value))}
+                    disabled={isRunning}
+                    className="w-full accent-indigo-500 cursor-pointer mt-2"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                    <span>1 (Sequential)</span>
+                    <span>5 (Parallel)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Launch Button */}
+            <div className="pt-6">
+              <button
+                onClick={handleLaunchAgent}
+                disabled={isRunning}
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-900/50 disabled:cursor-not-allowed font-semibold text-sm text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
+              >
+                {isRunning ? (
+                  <>
+                    <RotateCw className="w-4 h-4 animate-spin" />
+                    Executing Autonomous Flow...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    Launch Autonomous Buyer Agent
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Live Execution Stream (7 cols) */}
+          <div className="lg:col-span-7 rounded-2xl bg-slate-900/70 border border-slate-800 p-6 flex flex-col shadow-xl backdrop-blur-md min-h-[460px]">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-violet-400" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300">
+                  Real-time Execution Stream
+                </h2>
+              </div>
+              <span className="text-xs font-mono text-slate-500">
+                {isRunning ? (
+                  <span className="text-emerald-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    SSE Streaming Active
+                  </span>
+                ) : events.length > 0 ? (
+                  "Completed"
+                ) : (
+                  "Awaiting Execution"
+                )}
+              </span>
+            </div>
+
+            {/* Event list */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[380px] pr-2">
+              {events.length === 0 && !isRunning ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500 space-y-2">
+                  <Activity className="w-8 h-8 opacity-40 text-indigo-400" />
+                  <p className="text-xs">No active run. Select a task preset or enter an instruction, then click Launch.</p>
+                </div>
+              ) : (
+                events.map((ev, i) => (
+                  <div
+                    key={i}
+                    className={`p-3 rounded-xl border text-xs transition-all ${
+                      ev.type === "CHALLENGE_402_RECEIVED"
+                        ? "bg-amber-950/20 border-amber-900/50 text-amber-200"
+                        : ev.type === "PAYMENT_SIGNED"
+                        ? "bg-indigo-950/30 border-indigo-900/50 text-indigo-200"
+                        : ev.type === "SETTLEMENT_CONFIRMED"
+                        ? "bg-emerald-950/30 border-emerald-900/50 text-emerald-200"
+                        : ev.type === "FALLBACK_TRIGGERED"
+                        ? "bg-orange-950/30 border-orange-900/50 text-orange-200"
+                        : ev.type === "STEP_FAILED"
+                        ? "bg-rose-950/30 border-rose-900/50 text-rose-300"
+                        : "bg-slate-950 border-slate-800 text-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider opacity-80">
+                        {ev.type}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {new Date(ev.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="font-sans leading-relaxed">{ev.message}</p>
+                    {ev.details && typeof ev.details.txHash === "string" ? (
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-800/60 flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-slate-400">Transaction Receipt:</span>
+                        <Link
+                          href={`/tx/${ev.details.txHash}`}
+                          target="_blank"
+                          className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 underline"
+                        >
+                          {(ev.details.txHash as string).slice(0, 14)}...
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Run summary footer */}
+            {runSummary && (
+              <div className="mt-4 pt-3 border-t border-slate-800 bg-slate-950/80 -mx-2 px-4 py-3 rounded-xl flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-slate-400">Total Spent: </span>
+                  <span className="font-bold text-emerald-400 font-mono">
+                    {((runSummary.totalSpent as number) / 1e6).toFixed(4)} USDC
+                  </span>
+                  <span className="text-slate-500 font-mono ml-2">
+                    (Remaining: {((runSummary.remainingBudget as number) / 1e6).toFixed(4)} USDC)
+                  </span>
+                </div>
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <ShieldCheck className="w-4 h-4" /> All Steps Verified
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Wallets & Dynamic Reputation Matrix */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Wallets Panel */}
+          <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <WalletIcon className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
+                  System Wallets & Balances
+                </h3>
+              </div>
+              <span className="text-xs text-slate-500 font-mono">Live Mongo Ledger</span>
+            </div>
+
+            <div className="space-y-2">
+              {wallets.map((w) => (
+                <div
+                  key={w._id}
+                  className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-xs"
+                >
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-200">{w.label}</span>
+                      <span
+                        className={`text-[9px] uppercase font-mono px-1.5 py-0.5 rounded ${
+                          w.role === "buyer"
+                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                            : w.role === "facilitator"
+                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                            : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        }`}
+                      >
+                        {w.role}
+                      </span>
+                    </div>
+                    <p className="font-mono text-[11px] text-slate-500">{w.address}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono font-bold text-slate-100">
+                      {(w.balance / 1e6).toFixed(4)} USDC
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono">{w.balance} units</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Seller Reputation Panel */}
+          <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
+                  Dynamic Seller Reputation Matrix
+                </h3>
+              </div>
+              <span className="text-xs text-slate-500 font-mono">Ledger Aggregated</span>
+            </div>
+
+            <div className="space-y-2">
+              {services.map((svc) => (
+                <div
+                  key={svc.id}
+                  className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-slate-200">{svc.name}</span>
+                      <span className="text-slate-500 text-[11px] ml-2">({svc.category})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400 font-mono font-bold">
+                        {(svc.price / 1e6).toFixed(4)} USDC
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                          svc.reputation.score >= 80
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : svc.reputation.score >= 50
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                        }`}
+                      >
+                        Rep: {svc.reputation.score}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/60">
+                    <div>Success: {svc.reputation.successRate}%</div>
+                    <div>Median: {svc.reputation.medianLatencyMs}ms</div>
+                    <div>Calls: {svc.reputation.totalCalls}</div>
+                    <div className={svc.reputation.rejectedCalls > 0 ? "text-rose-400" : ""}>
+                      Rejected: {svc.reputation.rejectedCalls}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Full Ledger Audit Table */}
+        <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-violet-400" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
+                Transaction Ledger & Audit Trail
+              </h3>
+            </div>
+            <span className="text-xs text-slate-500 font-mono">
+              Total Recorded Attempts: {ledger.length}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                <tr>
+                  <th className="p-3">Time</th>
+                  <th className="p-3">Task ID</th>
+                  <th className="p-3">Service</th>
+                  <th className="p-3">Category</th>
+                  <th className="p-3">Listed</th>
+                  <th className="p-3">Asked</th>
+                  <th className="p-3">Paid</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Latency</th>
+                  <th className="p-3">Tx Hash</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-mono">
+                {ledger.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="p-6 text-center text-slate-500">
+                      No ledger records found. Run a task to generate transaction history.
+                    </td>
+                  </tr>
+                ) : (
+                  ledger.slice(0, 15).map((row) => (
+                    <tr key={row._id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="p-3 text-slate-400 text-[11px]">
+                        {new Date(row.createdAt).toLocaleTimeString()}
+                      </td>
+                      <td className="p-3 text-slate-300">{row.taskId}</td>
+                      <td className="p-3 font-semibold text-slate-200">{row.serviceName}</td>
+                      <td className="p-3 text-slate-400">{row.category}</td>
+                      <td className="p-3 text-slate-400">{(row.listedPrice / 1e6).toFixed(4)}</td>
+                      <td className="p-3 text-slate-400">{(row.askedPrice / 1e6).toFixed(4)}</td>
+                      <td className="p-3 font-bold text-emerald-400">
+                        {(row.paidPrice / 1e6).toFixed(4)}
+                      </td>
+                      <td className="p-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            row.status === "SETTLED"
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : row.status === "REFUSED_PRICE_MISMATCH"
+                              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                              : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-400">{row.latencyMs}ms</td>
+                      <td className="p-3">
+                        {row.txHash ? (
+                          <Link
+                            href={`/tx/${row.txHash}`}
+                            target="_blank"
+                            className="text-indigo-400 hover:text-indigo-300 underline inline-flex items-center gap-1"
+                          >
+                            {row.txHash.slice(0, 10)}...
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>
