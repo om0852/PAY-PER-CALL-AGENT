@@ -190,14 +190,16 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
   // Dispatcher & Execution State
   const [taskPrompt, setTaskPrompt] = useState(
-    "From pages 1 to 4 of books.toscrape.com, find the three cheapest 5-star books, give their prices in rupees, and summarise each description in Hindi."
+    "Execute master enterprise intelligence: scrape international catalogue, convert foreign prices to rupees, evaluate customer review sentiment, query Base L2 gas & crypto oracle, perform vendor AML compliance audit, and compile executive dossier."
   );
-  const [budgetUsdc, setBudgetUsdc] = useState<number>(0.05);
-  const [concurrency, setConcurrency] = useState<number>(3);
+  const [budgetUsdc, setBudgetUsdc] = useState<number>(0.75);
+  const [concurrency, setConcurrency] = useState<number>(4);
+  const [activePreset, setActivePreset] = useState<string>("master");
   const [isRunning, setIsRunning] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [events, setEvents] = useState<StreamEvent[]>([]);
   const [runSummary, setRunSummary] = useState<Record<string, unknown> | null>(null);
+
 
   // Data states from DB
   const [wallets, setWallets] = useState<WalletData[]>([]);
@@ -2123,11 +2125,17 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   {/* Primary Master Preset Card */}
                   <div
                     onClick={() => {
+                      setActivePreset("master");
                       setTaskPrompt("Execute master enterprise intelligence: scrape international catalogue, convert foreign prices to rupees, evaluate customer review sentiment, query Base L2 gas & crypto oracle, perform vendor AML compliance audit, and compile executive dossier.");
-                      setBudgetUsdc(0.75);
+                      setBudgetUsdc((prev) => Math.max(prev, 0.75));
                       setConcurrency(4);
+                      triggerToast("Loaded: 6-Step Master Mission (Invokes all 6 services across Base Sepolia)");
                     }}
-                    className="relative overflow-hidden p-3.5 rounded-xl bg-gradient-to-br from-[#d4af37]/15 via-[#d4af37]/5 to-[#f5f3f0] border border-[#d4af37]/40 shadow-[0_2px_8px_rgba(212,175,55,0.12)] cursor-pointer hover:shadow-md transition-all group"
+                    className={`relative overflow-hidden p-3.5 rounded-xl border cursor-pointer hover:shadow-md transition-all group ${
+                      activePreset === "master"
+                        ? "bg-gradient-to-br from-[#d4af37]/25 via-[#d4af37]/10 to-[#f5f3f0] border-[#d4af37] shadow-[0_2px_12px_rgba(212,175,55,0.2)] ring-1 ring-[#d4af37]"
+                        : "bg-gradient-to-br from-[#d4af37]/15 via-[#d4af37]/5 to-[#f5f3f0] border-[#d4af37]/40 shadow-[0_2px_8px_rgba(212,175,55,0.12)]"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -2139,11 +2147,11 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                         </span>
                       </div>
                       <span className="text-xs font-bold text-[#735c00] font-mono flex-shrink-0">
-                        $0.75 <span className="text-[10px] text-[#5b5e66] font-normal">USDC</span>
+                        ~$0.23 <span className="text-[10px] text-[#5b5e66] font-normal">USDC</span>
                       </span>
                     </div>
                     <p className="text-[11px] text-[#4d4635] leading-tight">
-                      Scrape + FX Rates + Sentiment + L2 Oracle + AML Compliance + Executive Dossier
+                      Invokes 6 services: Scrape + FX Rates + Sentiment + L2 Oracle + AML Compliance + Executive Dossier
                     </p>
                   </div>
 
@@ -2152,40 +2160,58 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                     <button
                       type="button"
                       onClick={() => {
+                        setActivePreset("3step");
                         setTaskPrompt("From pages 1 to 4 of books.toscrape.com, find the three cheapest 5-star books, give their prices in rupees, and summarise each description in Hindi.");
-                        setBudgetUsdc(0.50);
+                        setBudgetUsdc((prev) => Math.max(prev, 0.50));
                         setConcurrency(3);
+                        triggerToast("Loaded: 3-Step Pipeline (Scrape + FX + Hindi)");
                       }}
-                      className="px-2.5 py-2 rounded-lg bg-[#f5f3f0] hover:bg-[#eae8e5] text-left text-[#4d4635] hover:text-[#1b1c1a] transition-all flex flex-col gap-0.5 group border border-[#d0c5af]/30"
+                      className={`px-2.5 py-2 rounded-lg text-left transition-all flex flex-col gap-0.5 group border ${
+                        activePreset === "3step"
+                          ? "bg-white border-[#d4af37] shadow-sm ring-1 ring-[#d4af37]"
+                          : "bg-[#f5f3f0] hover:bg-[#eae8e5] text-[#4d4635] hover:text-[#1b1c1a] border-[#d0c5af]/30"
+                      }`}
                     >
                       <span className="font-semibold text-[#1b1c1a] group-hover:text-[#735c00] truncate">🎯 3-Step Pipeline</span>
-                      <span className="text-[#5b5e66] truncate">Scrape + FX + Hindi</span>
+                      <span className="text-[#5b5e66] truncate">Scrape + FX + Hindi (~$0.09)</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
+                        setActivePreset("fallback");
                         setTaskPrompt("Scrape books inventory using Budget Scraper, detect schema mismatch, and fallback to Books Scraper Pro.");
                         setBudgetUsdc(0.25);
                         setConcurrency(2);
+                        triggerToast("Loaded: Fallback Test (Runs 1 service with 2-tier recovery, costs $0.05)");
                       }}
-                      className="px-2.5 py-2 rounded-lg bg-[#f5f3f0] hover:bg-[#eae8e5] text-left text-[#4d4635] hover:text-[#1b1c1a] transition-all flex flex-col gap-0.5 group border border-[#d0c5af]/30"
+                      className={`px-2.5 py-2 rounded-lg text-left transition-all flex flex-col gap-0.5 group border ${
+                        activePreset === "fallback"
+                          ? "bg-white border-[#d4af37] shadow-sm ring-1 ring-[#d4af37]"
+                          : "bg-[#f5f3f0] hover:bg-[#eae8e5] text-[#4d4635] hover:text-[#1b1c1a] border-[#d0c5af]/30"
+                      }`}
                     >
                       <span className="font-semibold text-[#1b1c1a] group-hover:text-[#735c00] truncate">🛡️ Fallback Test</span>
-                      <span className="text-[#5b5e66] truncate">Corrupt Recovery</span>
+                      <span className="text-[#5b5e66] truncate">1 Service ($0.05) + Fallback</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
+                        setActivePreset("exhaustion");
                         setTaskPrompt("Attempt scraping books with tight cap to test HTTP 402 budget exhaustion refusal.");
                         setBudgetUsdc(0.01);
                         setConcurrency(1);
+                        triggerToast("Loaded: Exhaustion Cap Test (Demonstrates 402 budget refusal)");
                       }}
-                      className="px-2.5 py-2 rounded-lg bg-[#f5f3f0] hover:bg-[#eae8e5] text-left text-[#4d4635] hover:text-[#1b1c1a] transition-all flex flex-col gap-0.5 group border border-[#d0c5af]/30"
+                      className={`px-2.5 py-2 rounded-lg text-left transition-all flex flex-col gap-0.5 group border ${
+                        activePreset === "exhaustion"
+                          ? "bg-white border-[#d4af37] shadow-sm ring-1 ring-[#d4af37]"
+                          : "bg-[#f5f3f0] hover:bg-[#eae8e5] text-[#4d4635] hover:text-[#1b1c1a] border-[#d0c5af]/30"
+                      }`}
                     >
                       <span className="font-semibold text-[#1b1c1a] group-hover:text-[#735c00] truncate">⚡ Exhaustion Cap</span>
-                      <span className="text-[#5b5e66] truncate">Tight Cap Refusal</span>
+                      <span className="text-[#5b5e66] truncate">Tight Cap Refusal ($0.01)</span>
                     </button>
                   </div>
                 </div>
@@ -2195,9 +2221,12 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   {/* Budget Slider */}
                   <div className="flex flex-col gap-1.5 bg-[#f5f3f0] p-3.5 rounded-xl border border-[#d0c5af]/40">
                     <div className="flex items-center justify-between">
-                      <label className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">
-                        Budget Limit
-                      </label>
+                      <div className="flex flex-col">
+                        <label className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">
+                          Budget Ceiling (Max Cap)
+                        </label>
+                        <span className="text-[9px] text-[#735c00] font-semibold">Pay-per-call: Unspent budget is preserved</span>
+                      </div>
                       <span className="text-xs font-bold text-[#735c00] font-mono">
                         ${budgetUsdc.toFixed(2)} USDC
                       </span>
@@ -2216,6 +2245,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       <span>$2.50</span>
                     </div>
                   </div>
+
 
                   {/* Max Concurrency Slider */}
                   <div className="flex flex-col gap-1.5 bg-[#f5f3f0] p-3.5 rounded-xl border border-[#d0c5af]/40">
@@ -2372,12 +2402,17 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       <div className="flex items-start gap-2 mt-2 pt-2 bg-emerald-950/40 border border-emerald-500/40 p-2.5 rounded-lg">
                         <span className="text-emerald-400 select-none font-bold">★</span>
                         <div className="flex-1">
-                          <span className="text-emerald-300 font-bold">Task execution succeeded within budget: </span>
-                          <span className="text-emerald-400 font-bold">
-                            Total Spent ${((runSummary.totalSpent as number || 0) / 1e6).toFixed(4)} USDC
+                          <span className="text-emerald-300 font-bold">Task execution succeeded: </span>
+                          <span className="text-emerald-400 font-bold font-mono">
+                            Total Spent: ${((runSummary.totalSpent as number || 0) / 1e6).toFixed(4)} USDC
                           </span>
+                          {((runSummary.budgetLimit as number || 0) > (runSummary.totalSpent as number || 0)) && (
+                            <span className="text-emerald-200/90 text-xs font-mono ml-2">
+                              (Preserved ${(((runSummary.budgetLimit as number || 0) - (runSummary.totalSpent as number || 0)) / 1e6).toFixed(4)} USDC unspent from ${(Number(runSummary.budgetLimit || 0) / 1e6).toFixed(2)} cap)
+                            </span>
+                          )}
                           <span className="text-zinc-400 text-[10px] block mt-0.5">
-                            All micro-settlement vouchers verified with cryptographic ECDSA signatures on Base Sepolia
+                            Pay-as-you-go: All micro-settlement vouchers verified with cryptographic ECDSA signatures on Base Sepolia. Unused budget is never debited.
                           </span>
                         </div>
                       </div>
@@ -2391,6 +2426,11 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       <span className="text-emerald-400 font-bold">
                         ${runSummary ? ((runSummary.totalSpent as number || 0) / 1e6).toFixed(4) : "0.0000"} USDC
                       </span>
+                      {runSummary && ((runSummary.budgetLimit as number || 0) > (runSummary.totalSpent as number || 0)) && (
+                        <span className="text-zinc-400 text-[10px]">
+                          • Saved: ${(((runSummary.budgetLimit as number || 0) - (runSummary.totalSpent as number || 0)) / 1e6).toFixed(4)} USDC
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-[11px]">
                       <div className="flex items-center gap-1.5 text-zinc-500">
