@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withPayment } from "@/lib/x402/middleware";
 import { SELLER_WALLETS } from "@/lib/x402/seed";
+import { queryLLM } from "@/lib/llm";
 
 const outputSchema = {
   type: "object",
@@ -22,39 +23,8 @@ async function handler(req: Request) {
     // Default text
   }
 
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  let hindiSummary = "";
-
-  if (geminiApiKey) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Summarize the following text in clear, concise Hindi (Devanagari script) in 2-3 sentences:\n\n${text}`,
-                  },
-                ],
-              },
-            ],
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        hindiSummary =
-          data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-      }
-    } catch {
-      // Fallback below
-    }
-  }
+  const prompt = `Summarize the following text in clear, concise Hindi (Devanagari script) in 2-3 sentences:\n\n${text}`;
+  let hindiSummary = await queryLLM(prompt);
 
   // Resilient fallback translation/summary if no API key or network error
   if (!hindiSummary) {

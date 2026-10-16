@@ -10,6 +10,7 @@ import Service from "../models/Service";
 import { ensureSeededData } from "./seed";
 import { EIP712_DOMAIN, EIP3009_TYPES, generateNonce } from "./eip3009";
 import { PaymentChallenge, PaymentSignaturePayload, PaymentResponsePayload } from "./types";
+import { queryLLM } from "../llm";
 
 const ajv = new Ajv({ allErrors: true });
 
@@ -72,11 +73,8 @@ export function broadcastRunEvent(runId: string, event: AgentStepEvent) {
 
 // 1. Planner: transforms user request into structured steps
 export async function planTask(taskPrompt: string): Promise<PlanStep[]> {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-
-  if (geminiApiKey) {
-    try {
-      const prompt = `You are a high-efficiency buyer agent coordinator.
+  try {
+    const prompt = `You are a high-efficiency buyer agent coordinator.
 Break down this user task into an array of ordered sub-calls.
 Supported categories are strictly: "scraping", "fx-rates", "summarization".
 
@@ -89,26 +87,15 @@ Respond with ONLY valid JSON in this exact structure:
   { "stepIndex": 3, "category": "summarization", "description": "Summarize top books in Hindi", "input": { "text": "placeholder" } }
 ]`;
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-        const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]) as PlanStep[];
-        }
+    const rawText = await queryLLM(prompt);
+    if (rawText) {
+      const jsonMatch = rawText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]) as PlanStep[];
       }
-    } catch {
-      // Fall through to deterministic planner
     }
+  } catch {
+    // Fall through to deterministic planner
   }
 
   // Deterministic Planner: decomposes standard workflows
