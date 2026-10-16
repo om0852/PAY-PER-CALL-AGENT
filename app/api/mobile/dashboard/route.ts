@@ -24,7 +24,6 @@ export async function GET() {
     };
 
     const buyerBalanceUsdc = (buyerWallet.balance / 1e6).toFixed(4);
-    const sellerBalanceUsdc = (sellerWallet.balance / 1e6).toFixed(4);
     const buyerRawBalance = buyerWallet.balance / 1e6;
 
     // 2. Services
@@ -33,8 +32,14 @@ export async function GET() {
     const degradedCount = services.filter((s) => s.health?.status === "DEGRADED" || s.health?.status === "SCHEMA_MISMATCH").length;
     const downCount = services.filter((s) => s.health?.status === "DOWN" || s.active === false).length;
 
-    // 3. Ledger & Transactions
-    const ledger = await Ledger.find({}).sort({ createdAt: -1 }).limit(20).lean();
+    // 3. Ledger & Transactions (matches web platform total revenue exactly)
+    const [allSettledEntries, ledger] = await Promise.all([
+      Ledger.find({ status: "SETTLED" }).select("paidPrice").lean(),
+      Ledger.find({}).sort({ createdAt: -1 }).limit(20).lean(),
+    ]);
+
+    const totalRevenueAtomic = allSettledEntries.reduce((sum, e) => sum + (e.paidPrice || 0), 0);
+    const sellerBalanceUsdc = (totalRevenueAtomic / 1e6).toFixed(4);
     const settledTransactions = ledger.filter((l) => l.status === "SETTLED");
     const failedTransactions = ledger.filter((l) => l.status && l.status.includes("FAILED"));
 

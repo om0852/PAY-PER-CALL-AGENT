@@ -72,7 +72,7 @@ export default function App() {
               component={ServicesScreen}
               options={{
                 title: "Services Registry",
-                tabBarIcon: ({ focused }) => <TabIcon label="Nodes" focused={focused} icon="🌐" />,
+                tabBarIcon: ({ focused }) => <TabIcon label="Services" focused={focused} icon="🌐" />,
               }}
             />
             <Tab.Screen
