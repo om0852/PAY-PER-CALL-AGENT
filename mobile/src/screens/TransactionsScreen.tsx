@@ -78,8 +78,8 @@ export default function TransactionsScreen() {
           <Text style={styles.emptyDesc}>Launch an agent automation to trigger micro-settlements.</Text>
         </View>
       ) : (
-        transactions.map((tx) => (
-          <View key={tx.id} style={styles.card}>
+        transactions.map((tx, idx) => (
+          <View key={tx.id ? `${tx.id}-${idx}` : `tx-${idx}`} style={styles.card}>
             <View style={styles.cardTop}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.serviceName}>{tx.serviceName}</Text>

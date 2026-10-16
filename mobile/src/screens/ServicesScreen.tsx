@@ -59,13 +59,15 @@ export default function ServicesScreen() {
         </Text>
       </View>
 
-      {services.map((svc) => {
+      {services.map((svc, idx) => {
         const health = getHealthPill(svc.health?.status);
         const priceUsdc = ((svc.price || 50000) / 1e6).toFixed(4);
         const latency = svc.health?.latencyMs || 42;
 
+        const uniqueKey = svc._id ? String(svc._id) : (svc.id ? String(svc.id) : `${svc.name || 'svc'}-${idx}`);
+
         return (
-          <View key={svc._id || svc.name} style={styles.card}>
+          <View key={uniqueKey} style={styles.card}>
             <View style={styles.topRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{svc.name}</Text>

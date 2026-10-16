@@ -165,8 +165,8 @@ export default function DashboardScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
         {data?.recentTransactions && data.recentTransactions.length > 0 ? (
-          data.recentTransactions.slice(0, 5).map((tx) => (
-            <View key={tx.id} style={styles.txRow}>
+          data.recentTransactions.slice(0, 5).map((tx, idx) => (
+            <View key={tx.id ? `${tx.id}-${idx}` : `tx-${idx}`} style={styles.txRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.txService}>{tx.serviceName}</Text>
                 <Text style={styles.txMeta}>{tx.category} • {tx.time} • {tx.latencyMs}ms</Text>
