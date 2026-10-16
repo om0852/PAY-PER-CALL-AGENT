@@ -1,10 +1,32 @@
+export interface PaymentAcceptEntry {
+  scheme: string;
+  network: string;
+  amount: string | number;
+  asset: string;
+  payTo: string;
+  maxTimeoutSeconds?: number;
+  extra?: {
+    assetTransferMethod?: string;
+    name?: string;
+    version?: string;
+  };
+}
+
 export interface PaymentChallenge {
   x402Version: number;
-  network: string;
-  asset: string;
-  amount: number; // Integer atomic units
-  payTo: string;
+  error?: string;
+  network?: string;
+  asset?: string;
+  amount?: number;
+  payTo?: string;
   validBefore?: number;
+  resource?: {
+    url?: string;
+    description?: string;
+    mimeType?: string;
+  };
+  accepts?: PaymentAcceptEntry[];
+  extensions?: Record<string, unknown>;
 }
 
 export interface PaymentAuthorization {

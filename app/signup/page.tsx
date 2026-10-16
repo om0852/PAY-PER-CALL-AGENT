@@ -50,11 +50,11 @@ export default function SignupPage() {
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 p-4 text-white">
       <div className="w-full max-w-md rounded-2xl border border-slate-700/60 bg-slate-900/80 p-8 shadow-2xl backdrop-blur-xl">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-xl font-bold shadow-lg shadow-indigo-500/30">
-            P
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-sm font-black tracking-wider text-white shadow-lg shadow-indigo-500/30">
+            x402
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Create an Account</h1>
-          <p className="mt-1 text-sm text-slate-400">Join PrimaStore to start building</p>
+          <p className="mt-1 text-sm text-slate-400">Join Pay-Per-Call Agent Economy</p>
         </div>
 
         {errorMessage && (

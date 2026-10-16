@@ -318,18 +318,25 @@ export async function executePlanStep(
         Buffer.from(rawChallenge, "base64").toString("utf-8")
       ) as PaymentChallenge;
 
+      const challengeAmount = Number(
+        challenge.accepts?.[0]?.amount ?? challenge.amount ?? service.price
+      );
+      const challengePayTo = String(
+        challenge.accepts?.[0]?.payTo ?? challenge.payTo ?? service.payTo
+      );
+
       broadcastRunEvent(taskId, {
         stepId: `step-${step.stepIndex}`,
         type: "CHALLENGE_402_RECEIVED",
-        message: `Received x402 challenge: asked ${(challenge.amount / 1e6).toFixed(4)} USDC`,
+        message: `Received x402 challenge: asked ${(challengeAmount / 1e6).toFixed(4)} USDC`,
         details: challenge as unknown as Record<string, unknown>,
         timestamp: Date.now(),
       });
 
       // 3. Price & Spec Check: verify challenge matches registry entry
       if (
-        challenge.amount > service.price ||
-        challenge.payTo.toLowerCase() !== service.payTo.toLowerCase()
+        challengeAmount > service.price ||
+        challengePayTo.toLowerCase() !== service.payTo.toLowerCase()
       ) {
         await releaseBudgetReservation(taskId, reservationId, service.price);
         await Ledger.create({
@@ -339,7 +346,7 @@ export async function executePlanStep(
           serviceName: service.name,
           category: step.category,
           listedPrice: service.price,
-          askedPrice: challenge.amount,
+          askedPrice: challengeAmount,
           paidPrice: 0,
           txHash: null,
           status: "REFUSED_PRICE_MISMATCH",
@@ -349,7 +356,7 @@ export async function executePlanStep(
         broadcastRunEvent(taskId, {
           stepId: `step-${step.stepIndex}`,
           type: "STEP_FAILED",
-          message: `Payment refused: seller asked ${challenge.amount} but listed price is ${service.price}`,
+          message: `Payment refused: seller asked ${challengeAmount} but listed price is ${service.price}`,
           timestamp: Date.now(),
         });
         continue;
@@ -358,7 +365,7 @@ export async function executePlanStep(
       broadcastRunEvent(taskId, {
         stepId: `step-${step.stepIndex}`,
         type: "PRICE_VERIFIED",
-        message: `Price check passed: asked amount ${(challenge.amount / 1e6).toFixed(4)} USDC matches registry`,
+        message: `Price check passed: asked amount ${(challengeAmount / 1e6).toFixed(4)} USDC matches registry`,
         timestamp: Date.now(),
       });
 
@@ -368,8 +375,8 @@ export async function executePlanStep(
 
       const authorization = {
         from: buyerAddress as Hex,
-        to: challenge.payTo as Hex,
-        value: BigInt(challenge.amount),
+        to: challengePayTo as Hex,
+        value: BigInt(challengeAmount),
         validAfter: BigInt(0),
         validBefore: BigInt(validBefore),
         nonce: nonce as Hex,
@@ -394,8 +401,8 @@ export async function executePlanStep(
       const sigPayload: PaymentSignaturePayload = {
         authorization: {
           from: buyerAddress,
-          to: challenge.payTo,
-          value: challenge.amount,
+          to: challengePayTo,
+          value: challengeAmount,
           validAfter: 0,
           validBefore,
           nonce,
@@ -427,7 +434,7 @@ export async function executePlanStep(
           serviceName: service.name,
           category: step.category,
           listedPrice: service.price,
-          askedPrice: challenge.amount,
+          askedPrice: challengeAmount,
           paidPrice: 0,
           txHash: null,
           status: "FAILED_OUTPUT_REJECTED",
@@ -475,7 +482,7 @@ export async function executePlanStep(
           serviceName: service.name,
           category: step.category,
           listedPrice: service.price,
-          askedPrice: challenge.amount,
+          askedPrice: challengeAmount,
           paidPrice: 0,
           txHash: null,
           status: "FAILED_OUTPUT_REJECTED",
@@ -493,7 +500,7 @@ export async function executePlanStep(
       }
 
       // 7. Successful delivery & settlement!
-      await commitBudgetReservation(taskId, reservationId, challenge.amount);
+      await commitBudgetReservation(taskId, reservationId, challengeAmount);
       await Ledger.create({
         taskId,
         buyer: buyerAddress,
@@ -501,8 +508,8 @@ export async function executePlanStep(
         serviceName: service.name,
         category: step.category,
         listedPrice: service.price,
-        askedPrice: challenge.amount,
-        paidPrice: challenge.amount,
+        askedPrice: challengeAmount,
+        paidPrice: challengeAmount,
         txHash,
         status: "SETTLED",
         latencyMs,
@@ -511,8 +518,8 @@ export async function executePlanStep(
       broadcastRunEvent(taskId, {
         stepId: `step-${step.stepIndex}`,
         type: "SETTLEMENT_CONFIRMED",
-        message: `Settled ${(challenge.amount / 1e6).toFixed(4)} USDC via ${service.name}. Tx: ${txHash.slice(0, 14)}...`,
-        details: { txHash, paid: challenge.amount, latencyMs },
+        message: `Settled ${(challengeAmount / 1e6).toFixed(4)} USDC via ${service.name}. Tx: ${txHash.slice(0, 14)}...`,
+        details: { txHash, paid: challengeAmount, latencyMs },
         timestamp: Date.now(),
       });
 
