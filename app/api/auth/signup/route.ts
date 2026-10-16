@@ -43,11 +43,13 @@ export async function POST(request: Request) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const assignedRole = body.role === "seller" ? "seller" : "buyer";
 
     const newUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       password: hashedPassword,
+      role: assignedRole,
       createdAt: new Date(),
     });
 
@@ -64,6 +66,7 @@ export async function POST(request: Request) {
           id: newUser._id.toString(),
           name: newUser.name,
           email: newUser.email,
+          role: newUser.role,
         },
       },
       { status: 201 }
