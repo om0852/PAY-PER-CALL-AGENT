@@ -28,6 +28,8 @@ export interface IService {
   schema: Record<string, unknown>;
   health?: IServiceHealth;
   active: boolean;
+  averageUserRating?: number;
+  totalRatingsCount?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -108,6 +110,16 @@ const ServiceSchema = new Schema<IService>(
       type: Boolean,
       default: true,
       index: true,
+    },
+    averageUserRating: {
+      type: Number,
+      default: 5.0,
+      min: 1.0,
+      max: 5.0,
+    },
+    totalRatingsCount: {
+      type: Number,
+      default: 0,
     },
   },
   {

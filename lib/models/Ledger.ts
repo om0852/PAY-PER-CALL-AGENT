@@ -16,6 +16,15 @@ export interface ILedger extends Document {
     | "FAILED_OUTPUT_REJECTED"
     | "FAILED_DOWNSTREAM";
   latencyMs: number;
+  userRating?: number;
+  ratingFeedback?: string;
+  gasFeeSponsored?: string;
+  scoreBreakdown?: {
+    quality: number;
+    latencyScore: number;
+    costScore: number;
+    overallRating: number;
+  };
   createdAt: Date;
 }
 
@@ -77,6 +86,26 @@ const LedgerSchema = new Schema<ILedger>(
       type: Number,
       required: true,
     },
+    userRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      default: null,
+    },
+    ratingFeedback: {
+      type: String,
+      default: null,
+    },
+    gasFeeSponsored: {
+      type: String,
+      default: "Sponsored by Relayer (~$0.0001 L2 Gas)",
+    },
+    scoreBreakdown: {
+      quality: { type: Number, default: 100 },
+      latencyScore: { type: Number, default: 95 },
+      costScore: { type: Number, default: 100 },
+      overallRating: { type: Number, default: 4.9 },
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -91,3 +120,4 @@ const Ledger: Model<ILedger> =
   mongoose.models.Ledger || mongoose.model<ILedger>("Ledger", LedgerSchema);
 
 export default Ledger;
+

@@ -583,6 +583,13 @@ export async function executePlanStep(
           txHash: null,
           status: "FAILED_OUTPUT_REJECTED",
           latencyMs,
+          gasFeeSponsored: "Sponsored ($0.00)",
+          scoreBreakdown: {
+            quality: 0,
+            latencyScore: latencyMs < 2000 ? 90 : 70,
+            costScore: 0,
+            overallRating: 1.0,
+          },
         });
 
         broadcastRunEvent(taskId, {
@@ -597,6 +604,9 @@ export async function executePlanStep(
 
       // 7. Successful delivery & settlement!
       await commitBudgetReservation(taskId, reservationId, challengeAmount);
+      const latencyScore = latencyMs < 1000 ? 100 : latencyMs < 2500 ? 92 : latencyMs < 5000 ? 82 : 72;
+      const overallRating = Number(((100 * 0.5 + latencyScore * 0.3 + 100 * 0.2) / 20).toFixed(1));
+
       await Ledger.create({
         taskId,
         buyer: buyerAddress,
@@ -609,7 +619,15 @@ export async function executePlanStep(
         txHash,
         status: "SETTLED",
         latencyMs,
+        gasFeeSponsored: "Sponsored ($0.00)",
+        scoreBreakdown: {
+          quality: 100,
+          latencyScore,
+          costScore: 100,
+          overallRating,
+        },
       });
+
 
       broadcastRunEvent(taskId, {
         stepId: `step-${step.stepIndex}`,
@@ -725,14 +743,29 @@ export async function runBuyerAgent(
   const taskLogs = await Ledger.find({ taskId }).lean();
 
   const totalSpent = finalBudget ? finalBudget.spent : 0;
-  const purchases = taskLogs.map((log) => ({
+  const purchases = taskLogs.map((log: any) => ({
+    id: log._id ? log._id.toString() : "",
     service: log.serviceName,
     category: log.category,
+    seller: log.seller,
     price: (log.paidPrice / 1e6).toFixed(4) + " USDC",
+    rawPrice: log.paidPrice,
     status: log.status,
     txHash: log.txHash,
     latency: `${log.latencyMs}ms`,
+    latencyMs: log.latencyMs,
+    gasFee: "Sponsored ($0.00)",
+    gasFeeSponsored: log.gasFeeSponsored || "Sponsored by Relayer (~$0.0001 L2 Gas)",
+    scoreBreakdown: log.scoreBreakdown || {
+      quality: log.status === "SETTLED" ? 100 : 0,
+      latencyScore: log.latencyMs < 1500 ? 95 : 80,
+      costScore: 100,
+      overallRating: log.status === "SETTLED" ? 4.9 : 1.0,
+    },
+    userRating: log.userRating || null,
+    ratingFeedback: log.ratingFeedback || null,
   }));
+
 
   const completionEvent: AgentStepEvent = {
     stepId: "completion",

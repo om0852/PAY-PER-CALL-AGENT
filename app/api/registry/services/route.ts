@@ -69,6 +69,8 @@ export async function GET(req: Request) {
             latencyMs: 0,
             message: "Awaiting initial health audit",
           },
+          averageUserRating: svc.averageUserRating || 5.0,
+          totalRatingsCount: svc.totalRatingsCount || 0,
           reputation: {
             score: reputationScore,
             successRate,
