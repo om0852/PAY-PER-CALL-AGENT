@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View, StyleSheet } from "react-native";
+import { initNotifications } from "./src/services/notifications";
 
 import DashboardScreen from "./src/screens/DashboardScreen";
 import TransactionsScreen from "./src/screens/TransactionsScreen";
@@ -23,6 +24,10 @@ function TabIcon({ label, focused, icon }: { label: string; focused: boolean; ic
 }
 
 export default function App() {
+  useEffect(() => {
+    initNotifications();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#f8f7f4" }}>

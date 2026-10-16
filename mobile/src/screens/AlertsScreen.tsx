@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,16 +9,30 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { fetchAlerts } from "../services/api";
+import { triggerSystemNotification } from "../services/notifications";
 
 export default function AlertsScreen({ navigation }: any) {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [testSent, setTestSent] = useState(false);
+  const notifiedIdsRef = useRef<Set<string>>(new Set());
 
   const loadAlerts = async () => {
     try {
       const res = await fetchAlerts();
-      setAlerts(res.alerts || []);
+      const list = res.alerts || [];
+      setAlerts(list);
+
+      // Trigger native phone notification bar for new critical alerts
+      for (const alert of list) {
+        if (!notifiedIdsRef.current.has(alert.id)) {
+          notifiedIdsRef.current.add(alert.id);
+          if (alert.severity === "error" || alert.type === "LOW_BALANCE") {
+            await triggerSystemNotification(alert.title, alert.message);
+          }
+        }
+      }
     } catch (err: any) {
       console.warn("Error fetching alerts:", err.message);
     } finally {
@@ -32,6 +46,15 @@ export default function AlertsScreen({ navigation }: any) {
     const interval = setInterval(loadAlerts, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleTestSystemNotification = async () => {
+    setTestSent(true);
+    await triggerSystemNotification(
+      "⚠️ AgentBucket Critical Alert",
+      "Endpoint 'Books Scraper Pro' reported high latency (72ms). Autonomous fallback active."
+    );
+    setTimeout(() => setTestSent(false), 3000);
+  };
 
   const getAlertStyle = (type: string, severity: string) => {
     if (type === "LOW_BALANCE") return { borderColor: "#fde68a", bg: "#fffbeb", icon: "⚠️", tagColor: "#b45309" };
@@ -60,6 +83,22 @@ export default function AlertsScreen({ navigation }: any) {
         </Text>
       </View>
 
+      {/* Button to test phone's native status bar notification */}
+      <TouchableOpacity
+        style={styles.testNotificationBtn}
+        onPress={handleTestSystemNotification}
+      >
+        <Text style={{ fontSize: 16, marginRight: 8 }}>🔔</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.testBtnTitle}>
+            {testSent ? "✔ Notification Sent to Phone Status Bar!" : "Test Phone Notification Bar Alert"}
+          </Text>
+          <Text style={styles.testBtnSubtitle}>
+            Triggers a real notification in your Android/iPhone top status bar with sound & vibration.
+          </Text>
+        </View>
+      </TouchableOpacity>
+
       {alerts.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={{ fontSize: 32 }}>🛡️</Text>
@@ -69,10 +108,12 @@ export default function AlertsScreen({ navigation }: any) {
           </Text>
         </View>
       ) : (
-        alerts.map((alert) => {
+        alerts.map((alert, idx) => {
           const style = getAlertStyle(alert.type, alert.severity);
+          const uniqueKey = alert.id ? `${alert.id}-${idx}` : `alert-${idx}`;
+
           return (
-            <View key={alert.id} style={[styles.alertCard, { backgroundColor: style.bg, borderColor: style.borderColor }]}>
+            <View key={uniqueKey} style={[styles.alertCard, { backgroundColor: style.bg, borderColor: style.borderColor }]}>
               <View style={styles.alertTop}>
                 <Text style={styles.alertIcon}>{style.icon}</Text>
                 <View style={{ flex: 1 }}>
@@ -117,9 +158,25 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f8f7f4", padding: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f8f7f4" },
   loadingText: { marginTop: 12, fontSize: 13, color: "#5b5e66" },
-  header: { marginBottom: 16 },
+  header: { marginBottom: 14 },
   title: { fontSize: 18, fontWeight: "800", color: "#1b1c1a" },
   subtitle: { fontSize: 12, color: "#5b5e66", marginTop: 4, lineHeight: 18 },
+  testNotificationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 1.5,
+    borderColor: "#d4af37",
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 16,
+    shadowColor: "#d4af37",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  testBtnTitle: { fontSize: 13, fontWeight: "800", color: "#1b1c1a" },
+  testBtnSubtitle: { fontSize: 10, color: "#5b5e66", marginTop: 2, lineHeight: 14 },
   emptyCard: { backgroundColor: "#ffffff", padding: 24, borderRadius: 16, alignItems: "center", borderWidth: 1, borderColor: "#efeeeb", marginTop: 20 },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: "#1b1c1a", marginTop: 8 },
   emptySubtitle: { fontSize: 12, color: "#5b5e66", textAlign: "center", marginTop: 4 },
