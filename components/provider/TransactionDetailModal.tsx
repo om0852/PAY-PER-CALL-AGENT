@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Zap,
   ArrowRight,
+  ArrowDownLeft,
+  ArrowUpRight,
   Clock,
   Gauge,
   Star,
@@ -16,11 +18,13 @@ import {
   AlertTriangle,
   Coins,
   Receipt,
+  Wallet,
 } from "lucide-react";
 
 interface TransactionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialPerspective?: "dual" | "buyer" | "seller";
   tx: {
     _id?: string;
     id?: string;
@@ -51,9 +55,13 @@ interface TransactionDetailModalProps {
 export default function TransactionDetailModal({
   isOpen,
   onClose,
+  initialPerspective = "dual",
   tx,
 }: TransactionDetailModalProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [viewPerspective, setViewPerspective] = useState<"dual" | "buyer" | "seller">(
+    initialPerspective
+  );
 
   if (!isOpen || !tx) return null;
 
@@ -71,7 +79,7 @@ export default function TransactionDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#fbf9f6] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border-2 border-[#d4af37]/40 flex flex-col max-h-[90vh]">
+      <div className="bg-[#fbf9f6] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border-2 border-[#d4af37]/40 flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#efeeeb] bg-[#f5f3f0]">
           <div className="flex items-center gap-3">
@@ -81,7 +89,7 @@ export default function TransactionDetailModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-[#1b1c1a]">
-                  Micro-Settlement Audit &amp; Breakdown
+                  Transaction &amp; Amount Breakdown Audit
                 </h3>
                 <span
                   className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
@@ -97,6 +105,7 @@ export default function TransactionDetailModal({
                   onClick={() => copyToClipboard(hash, "hash")}
                   className="hover:text-[#735c00] p-0.5"
                   title="Copy Transaction Hash"
+                  type="button"
                 >
                   {copiedKey === "hash" ? (
                     <Check className="w-3 h-3 text-emerald-600" />
@@ -111,19 +120,110 @@ export default function TransactionDetailModal({
           <button
             onClick={onClose}
             className="p-1.5 rounded-xl hover:bg-[#eae8e5] text-[#5b5e66] hover:text-[#1b1c1a] transition-colors"
+            type="button"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Perspective Switcher Tabs */}
+        <div className="px-6 py-2.5 bg-white border-b border-[#efeeeb] flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-xs font-bold text-[#5b5e66] uppercase tracking-wider">
+            Ledger Viewpoint:
+          </span>
+          <div className="flex items-center bg-[#f5f3f0] p-1 rounded-xl border border-[#d0c5af]/40 text-xs font-semibold">
+            <button
+              onClick={() => setViewPerspective("dual")}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewPerspective === "dual"
+                  ? "bg-white text-[#1b1c1a] font-bold shadow-sm"
+                  : "text-[#5b5e66] hover:text-[#1b1c1a]"
+              }`}
+              type="button"
+            >
+              <Coins className="w-3.5 h-3.5 text-[#d4af37]" />
+              <span>Dual-Entry (Both)</span>
+            </button>
+
+            <button
+              onClick={() => setViewPerspective("seller")}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewPerspective === "seller"
+                  ? "bg-white text-emerald-800 font-bold shadow-sm"
+                  : "text-[#5b5e66] hover:text-emerald-700"
+              }`}
+              type="button"
+            >
+              <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Seller Wallet (Received)</span>
+            </button>
+
+            <button
+              onClick={() => setViewPerspective("buyer")}
+              className={`px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewPerspective === "buyer"
+                  ? "bg-white text-blue-800 font-bold shadow-sm"
+                  : "text-[#5b5e66] hover:text-blue-700"
+              }`}
+              type="button"
+            >
+              <ArrowUpRight className="w-3.5 h-3.5 text-blue-600" />
+              <span>Buyer Wallet (Sent)</span>
+            </button>
+          </div>
+        </div>
+
         {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto flex flex-col gap-6">
+        <div className="p-6 overflow-y-auto flex flex-col gap-5">
+          {/* Active Perspective Callout */}
+          {viewPerspective === "seller" && (
+            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs">
+                  <ArrowDownLeft className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-emerald-950 block">
+                    INCOMING PAYMENT RECEIVED (SELLER EARNING)
+                  </span>
+                  <span className="text-[11px] text-emerald-800">
+                    Credited to Seller Wallet <strong className="font-mono">{tx.seller.slice(0, 6)}...{tx.seller.slice(-4)}</strong> for executing {tx.serviceName}.
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-sm font-extrabold text-emerald-700 whitespace-nowrap">
+                +${isSettled ? paidUsdc : "0.0000"} USDC
+              </span>
+            </div>
+          )}
+
+          {viewPerspective === "buyer" && (
+            <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                  <ArrowUpRight className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-blue-950 block">
+                    OUTGOING PAYMENT SENT (BUYER EXPENDITURE)
+                  </span>
+                  <span className="text-[11px] text-blue-800">
+                    Debited from Buyer Scout <strong className="font-mono">{tx.buyer.slice(0, 6)}...{tx.buyer.slice(-4)}</strong> via EIP-3009 offline voucher.
+                  </span>
+                </div>
+              </div>
+              <span className="font-mono text-sm font-extrabold text-blue-800 whitespace-nowrap">
+                -${isSettled ? paidUsdc : "0.0000"} USDC
+              </span>
+            </div>
+          )}
+
           {/* 1. Core Amount Breakdown Card */}
           <div className="bg-white rounded-xl p-5 border border-[#d4af37]/30 shadow-sm flex flex-col gap-3">
             <div className="flex items-center justify-between pb-2 border-b border-[#efeeeb]">
               <span className="text-xs font-bold uppercase tracking-wider text-[#735c00] flex items-center gap-1.5">
                 <Coins className="w-4 h-4 text-[#d4af37]" />
-                Settlement Amount Breakdown
+                Financial Amount Breakdown
               </span>
               <span className="font-mono text-xs text-[#5b5e66]">
                 Asset: Circle USDC (6 Decimals)
@@ -131,12 +231,14 @@ export default function TransactionDetailModal({
             </div>
 
             {/* Line Items */}
-            <div className="flex flex-col gap-2 text-xs">
+            <div className="flex flex-col gap-2.5 text-xs">
               {/* Item 1: Gross Service Fee */}
               <div className="flex items-center justify-between py-1">
                 <div className="flex flex-col">
-                  <span className="font-semibold text-[#1b1c1a]">Gross Service Fee (Listed Unit Price)</span>
-                  <span className="text-[10px] text-[#5b5e66]">Contract price configured by provider in registry</span>
+                  <span className="font-semibold text-[#1b1c1a]">Gross Service Unit Fee</span>
+                  <span className="text-[10px] text-[#5b5e66]">
+                    Contract price listed in provider registry for {tx.serviceName}
+                  </span>
                 </div>
                 <span className="font-mono font-bold text-[#1b1c1a]">
                   ${listedUsdc} USDC
@@ -153,7 +255,7 @@ export default function TransactionDetailModal({
                     </span>
                   </span>
                   <span className="text-[10px] text-emerald-700 font-medium">
-                    Paid by Facilitator Relayer (Saved ~$0.000100 L2 Gas)
+                    Relayer (0x9965...A4dc) pays gas for EIP-3009 execution
                   </span>
                 </div>
                 <span className="font-mono font-bold text-emerald-600">
@@ -161,40 +263,58 @@ export default function TransactionDetailModal({
                 </span>
               </div>
 
-              {/* Item 3: Platform Surcharge */}
+              {/* Item 3: Platform Protocol Fee */}
               <div className="flex items-center justify-between py-1 border-t border-[#f5f3f0]">
                 <div className="flex flex-col">
-                  <span className="font-semibold text-[#1b1c1a]">Platform Protocol Fee</span>
-                  <span className="text-[10px] text-[#5b5e66]">0% surcharge during hackathon evaluation</span>
+                  <span className="font-semibold text-[#1b1c1a]">Platform Protocol Surcharge</span>
+                  <span className="text-[10px] text-[#5b5e66]">0% platform commission fee</span>
                 </div>
                 <span className="font-mono font-bold text-[#5b5e66]">
                   +$0.0000 USDC
                 </span>
               </div>
 
-              {/* Total Settlement Amount */}
-              <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-[#fbf9f6] border border-[#d0c5af]/40 mt-1">
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold text-[#1b1c1a] uppercase tracking-wide">
-                    Net Amount Debited From Buyer
+              {/* Net Payout / Deductions Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1 pt-2 border-t border-[#efeeeb]">
+                {/* Buyer Side */}
+                <div
+                  className={`p-3 rounded-lg border flex flex-col gap-1 transition-all ${
+                    viewPerspective === "buyer" || viewPerspective === "dual"
+                      ? "bg-blue-50/50 border-blue-200"
+                      : "bg-[#fbf9f6] border-[#efeeeb] opacity-60"
+                  }`}
+                >
+                  <span className="text-[10px] uppercase font-bold text-blue-900 flex items-center gap-1">
+                    <ArrowUpRight className="w-3 h-3 text-blue-600" />
+                    Buyer Wallet Debited
                   </span>
-                  <span className="text-[10px] text-[#5b5e66]">
-                    Transferred via EIP-3009 authorization
+                  <span className="font-mono text-base font-extrabold text-blue-900">
+                    -${isSettled ? paidUsdc : "0.0000"} USDC
+                  </span>
+                  <span className="text-[9px] text-[#5b5e66] font-mono">
+                    From: {tx.buyer.slice(0, 6)}...{tx.buyer.slice(-4)}
                   </span>
                 </div>
-                <span className="font-mono text-base font-extrabold text-emerald-700">
-                  ${isSettled ? paidUsdc : "0.0000"} USDC
-                </span>
-              </div>
 
-              {/* Net Credited to Seller */}
-              <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-emerald-50/60 border border-emerald-200">
-                <span className="text-xs font-semibold text-emerald-900">
-                  Net Amount Credited to Seller Provider
-                </span>
-                <span className="font-mono text-xs font-bold text-emerald-800">
-                  +${isSettled ? paidUsdc : "0.0000"} USDC
-                </span>
+                {/* Seller Side */}
+                <div
+                  className={`p-3 rounded-lg border flex flex-col gap-1 transition-all ${
+                    viewPerspective === "seller" || viewPerspective === "dual"
+                      ? "bg-emerald-50/60 border-emerald-200"
+                      : "bg-[#fbf9f6] border-[#efeeeb] opacity-60"
+                  }`}
+                >
+                  <span className="text-[10px] uppercase font-bold text-emerald-900 flex items-center gap-1">
+                    <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
+                    Seller Wallet Credited
+                  </span>
+                  <span className="font-mono text-base font-extrabold text-emerald-800">
+                    +${isSettled ? paidUsdc : "0.0000"} USDC
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-mono">
+                    To: {tx.seller.slice(0, 6)}...{tx.seller.slice(-4)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -207,8 +327,10 @@ export default function TransactionDetailModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               {/* Buyer */}
               <div className="p-3 rounded-lg bg-[#fbf9f6] border border-[#d0c5af]/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Buyer Account (Agent)</span>
-                <span className="font-bold text-[#1b1c1a]">Autonomous Scout</span>
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">
+                  Payer / Buyer Account (Agent)
+                </span>
+                <span className="font-bold text-[#1b1c1a]">Buyer Scout Alpha</span>
                 <div className="flex items-center justify-between mt-1">
                   <span className="font-mono text-[11px] text-[#5b5e66]">
                     {tx.buyer.slice(0, 8)}...{tx.buyer.slice(-6)}
@@ -216,6 +338,7 @@ export default function TransactionDetailModal({
                   <button
                     onClick={() => copyToClipboard(tx.buyer, "buyer")}
                     className="text-[#735c00] hover:underline flex items-center gap-1 text-[10px]"
+                    type="button"
                   >
                     <span>{copiedKey === "buyer" ? "Copied" : "Copy"}</span>
                   </button>
@@ -224,7 +347,9 @@ export default function TransactionDetailModal({
 
               {/* Seller */}
               <div className="p-3 rounded-lg bg-[#fbf9f6] border border-[#d0c5af]/30 flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Seller Account (Provider)</span>
+                <span className="text-[10px] uppercase font-bold text-[#5b5e66]">
+                  Beneficiary / Seller Payout
+                </span>
                 <span className="font-bold text-[#1b1c1a]">{tx.serviceName}</span>
                 <div className="flex items-center justify-between mt-1">
                   <span className="font-mono text-[11px] text-[#5b5e66]">
@@ -233,6 +358,7 @@ export default function TransactionDetailModal({
                   <button
                     onClick={() => copyToClipboard(tx.seller, "seller")}
                     className="text-[#735c00] hover:underline flex items-center gap-1 text-[10px]"
+                    type="button"
                   >
                     <span>{copiedKey === "seller" ? "Copied" : "Copy"}</span>
                   </button>
@@ -305,6 +431,7 @@ export default function TransactionDetailModal({
             <button
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl bg-white hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] border border-[#d0c5af]/50 transition-colors"
+              type="button"
             >
               Close Audit
             </button>
