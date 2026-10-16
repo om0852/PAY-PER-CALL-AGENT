@@ -527,8 +527,12 @@ export default function Dashboard() {
         <div className="flex flex-col">
           {/* Brand Header */}
           <div className="h-16 flex items-center px-6 gap-3 bg-[#f5f3f0] border-b border-[#d4af37]/15">
-            <div className="w-8 h-8 rounded-lg bg-[#1b1c1a] flex items-center justify-center text-[#ffe088] shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)]">
-              <Layers className="w-5 h-5 text-[#d4af37]" />
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center p-0.5 shadow-sm border border-[#d4af37]/30">
+              <img
+                src="/bots/bot-2.svg"
+                alt="AgentBucket Logo"
+                className="w-full h-full object-cover rounded-lg"
+              />
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-bold tracking-tight text-[#1b1c1a] leading-tight">
@@ -743,9 +747,11 @@ export default function Dashboard() {
 
             {/* User Profile & Logout */}
             <div className="flex items-center gap-2.5 pl-1">
-              <div className="w-8 h-8 rounded-full bg-[#1b1c1a] flex items-center justify-center font-bold text-xs text-white shadow-sm border border-[#d4af37]/30">
-                {user?.name ? user.name[0].toUpperCase() : "A"}
-              </div>
+              <img
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/30"
+                src="/bots/bot-3.svg"
+              />
               <div className="hidden xl:flex flex-col text-left">
                 <span className="text-xs font-semibold text-[#1b1c1a] leading-none">
                   {user?.name || "AuraNode Labs"}
@@ -835,7 +841,7 @@ export default function Dashboard() {
                       <img
                         alt="Sentinel Bot"
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform"
-                        src="https://lh3.googleusercontent.com/aida/AEtjO1V-GdifF2cnRNnV72fsDYZlwneJTG0gm4PeqnXTs4CR1I-TqvHKG6RE5FM3s9fgELVLrN008hS9MlXDidfGl9p6DJGQz_WMfVCLtu-MWLmmWi_p8ASCjm3VdGcbmow0JoVNXqJ_zVauF9aJLBIoRG2ZAJRpN15XieaTWFWBP99wrAxHbaHxSM2CmRz85QVeJDVZr5a0W1VftAVRdGjgqRS-8QfUEIcR3jdfCdiDyxWZQGB-SRkssYK9KOYy"
+                        src="/bots/bot-2.svg"
                       />
                       <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-[#10b981] border border-white"></span>
                     </div>
@@ -1234,8 +1240,12 @@ export default function Dashboard() {
               <div className="lg:col-span-6 flex flex-col justify-between space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-base font-bold text-[#1b1c1a] flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[#735c00]" />
+                    <h2 className="text-base font-bold text-[#1b1c1a] flex items-center gap-2.5">
+                      <img
+                        src="/bots/bot-1.svg"
+                        alt="Scout Bot"
+                        className="w-7 h-7 rounded-lg object-cover border border-[#d4af37]/40 shadow-sm"
+                      />
                       <span>Buyer Agent Dispatcher</span>
                     </h2>
                     <span className="text-[10px] bg-[#d4af37]/20 text-[#554300] px-2 py-0.5 rounded-full font-bold">
@@ -1472,9 +1482,11 @@ export default function Dashboard() {
 
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-[#efeeeb] flex items-center justify-center font-bold text-[10px] text-[#1b1c1a]">
-                              SA
-                            </div>
+                            <img
+                              alt="Scout Alpha"
+                              src="/bots/bot-1.svg"
+                              className="w-6 h-6 rounded-full object-cover border border-[#d4af37]/30 shrink-0"
+                            />
                             <span className="font-bold text-[#1b1c1a]">Scout Alpha</span>
                             <span className="font-mono text-[#5b5e66] text-[10px]">
                               ({entry.buyer.slice(0, 5)}...{entry.buyer.slice(-3)})
@@ -1559,8 +1571,12 @@ export default function Dashboard() {
               </div>
 
               <div className="bg-[#f5f3f0] rounded-xl p-4 flex items-center gap-3.5 border border-[#d0c5af]/30">
-                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-[#735c00] shadow-sm shrink-0">
-                  <Cpu className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-lg bg-white overflow-hidden flex items-center justify-center border border-[#d4af37]/30 shadow-sm shrink-0">
+                  <img
+                    src="/bots/bot-4.svg"
+                    alt="Autonomous Validator"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs font-bold text-[#1b1c1a]">

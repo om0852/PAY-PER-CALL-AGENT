@@ -85,9 +85,16 @@ function TxExplorerContent() {
           >
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </Link>
-          <span className="text-xs font-mono uppercase px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
-            x402 Micro-Explorer
-          </span>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/bots/bot-2.svg"
+              alt="Sentinel"
+              className="w-7 h-7 rounded-lg border border-indigo-500/40 shadow-sm"
+            />
+            <span className="text-xs font-mono uppercase px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
+              x402 Micro-Explorer
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -156,10 +163,17 @@ function TxExplorerContent() {
 
               {/* Parties */}
               <div className="pt-4 border-t border-slate-800 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-2">
-                  <div>
-                    <span className="text-xs text-slate-400">From (Buyer):</span>
-                    <p className="font-mono text-xs text-slate-200 break-all">{tx.from}</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/bots/bot-1.svg"
+                      alt="Buyer Scout Bot"
+                      className="w-10 h-10 rounded-xl border border-slate-700 bg-slate-900 object-cover shrink-0 shadow-sm"
+                    />
+                    <div>
+                      <span className="text-xs text-slate-400">From (Buyer Scout Agent):</span>
+                      <p className="font-mono text-xs text-slate-200 break-all">{tx.from}</p>
+                    </div>
                   </div>
                   <button
                     onClick={() => copyToClipboard(tx.from, "from")}
@@ -169,15 +183,22 @@ function TxExplorerContent() {
                   </button>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-2">
-                  <div>
-                    <span className="text-xs text-slate-400">To (Seller PayTo):</span>
-                    <p className="font-mono text-xs text-slate-200 break-all">{tx.to}</p>
-                    {tx.service && (
-                      <p className="text-xs text-indigo-400 mt-0.5">
-                        Service: {tx.service.name} ({tx.service.category}) • Latency: {tx.service.latencyMs}ms
-                      </p>
-                    )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src="/bots/bot-3.svg"
+                      alt="Seller Node"
+                      className="w-10 h-10 rounded-xl border border-slate-700 bg-slate-900 object-cover shrink-0 shadow-sm"
+                    />
+                    <div>
+                      <span className="text-xs text-slate-400">To (Seller PayTo Node):</span>
+                      <p className="font-mono text-xs text-slate-200 break-all">{tx.to}</p>
+                      {tx.service && (
+                        <p className="text-xs text-indigo-400 mt-0.5">
+                          Service: {tx.service.name} ({tx.service.category}) • Latency: {tx.service.latencyMs}ms
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => copyToClipboard(tx.to, "to")}

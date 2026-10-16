@@ -42,8 +42,12 @@ export default function ProviderSidebar({
       <div className="flex flex-col">
         {/* Brand Header */}
         <div className="h-16 flex items-center px-6 gap-3 bg-[#f5f3f0] border-b border-[#d4af37]/15">
-          <div className="w-8 h-8 rounded-lg bg-[#1b1c1a] flex items-center justify-center text-[#ffe088] shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)]">
-            <Layers className="w-5 h-5 text-[#d4af37]" />
+          <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center p-0.5 shadow-sm border border-[#d4af37]/30">
+            <img
+              src="/bots/bot-2.svg"
+              alt="AgentBucket Logo"
+              className="w-full h-full object-cover rounded-lg"
+            />
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-tight text-[#1b1c1a] leading-tight">

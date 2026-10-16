@@ -94,7 +94,7 @@ export default function ProviderHeader({
           <img
             alt="Profile"
             className="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/30"
-            src="https://lh3.googleusercontent.com/aida/AEtjO1VeuBtt0PRIj9ExYL1tsoVLfRg_ReQniiUQJe7QZlpV_aOvS3gm07H6iWKiZHyCeYCKpoyLA37vNpc8D07XbhEW1ksojNKFlI_HDJujKD2V912H5sJijuZ9R0JTqHFxKrozrBCVWY5D9MgAoVD1Pkar3dCAIkk0Pqqn_LDWEmY5ds58owhm00T0ahMcyo9nQPkkc7kMVemhKMLjL_dAGctwJJAv7cRs_E_18kwPk0p5VK7jSGZ4xo2s9rw"
+            src="/bots/bot-3.svg"
           />
           <div className="hidden xl:flex flex-col">
             <span className="text-xs font-semibold text-[#1b1c1a] leading-none">

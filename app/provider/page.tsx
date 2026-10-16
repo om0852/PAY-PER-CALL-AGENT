@@ -273,7 +273,7 @@ export default function ProviderStudioPage() {
                       <img
                         alt="Sentinel Bot"
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform"
-                        src="https://lh3.googleusercontent.com/aida/AEtjO1V-GdifF2cnRNnV72fsDYZlwneJTG0gm4PeqnXTs4CR1I-TqvHKG6RE5FM3s9fgELVLrN008hS9MlXDidfGl9p6DJGQz_WMfVCLtu-MWLmmWi_p8ASCjm3VdGcbmow0JoVNXqJ_zVauF9aJLBIoRG2ZAJRpN15XieaTWFWBP99wrAxHbaHxSM2CmRz85QVeJDVZr5a0W1VftAVRdGjgqRS-8QfUEIcR3jdfCdiDyxWZQGB-SRkssYK9KOYy"
+                        src="/bots/bot-2.svg"
                       />
                       <span className="absolute bottom-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-[#10b981] border border-white"></span>
                     </div>

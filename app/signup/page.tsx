@@ -106,8 +106,8 @@ export default function SignupPage() {
             <Link href="/" className="flex items-center gap-3">
               <img
                 alt="AgentBucket Logo"
-                className="h-8 w-auto object-contain"
-                src="https://lh3.googleusercontent.com/aida/AEtjO1UIa34YfhyjxoiJa1OPacPFjZ06goXNFNXJlmdJ5sLWMOL31xNWqtSMz7E33RL2rVa3a4PKw-FYuBdSdlO_QpcGy3zWEmwvFjl7CscgKmBPfW0J_LmKsb3dLmnyJ1tzKa9b0gG6k5Y7GbdjZvGvPMevwlGCv9bDBlVIui-Y6tEP22yL2WOQ1lSqWCpl7H5ePIyo5xPmG3YEazX4A3Zls7v1Gp9Rd-FyHvYmG1cKsDROM88_3GjQkvDXNEau"
+                className="h-8 w-8 object-contain rounded-lg border border-[#d4af37]/30"
+                src="/bots/bot-2.svg"
               />
               <span className="text-xl font-bold text-[#1b1c1a] tracking-tight hidden sm:inline-block">
                 AgentBucket
@@ -151,9 +151,11 @@ export default function SignupPage() {
               </Link>
             </nav>
 
-            <div className="w-8 h-8 rounded-full bg-[#735c00] flex items-center justify-center shrink-0 shadow-sm text-white">
-              <UserIcon className="w-4 h-4 text-white" />
-            </div>
+            <img
+              alt="Avatar"
+              src="/bots/bot-3.svg"
+              className="w-8 h-8 rounded-full object-cover shadow-sm border border-[#d4af37]/30"
+            />
           </div>
         </div>
       </header>
@@ -190,11 +192,11 @@ export default function SignupPage() {
 
                 {/* Brand Mark & Glowing Icon */}
                 <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-12 rounded-xl bg-white shadow-md flex items-center justify-center p-1.5 border border-[#d4af37]/30">
+                  <div className="relative w-12 h-12 rounded-xl bg-white shadow-md flex items-center justify-center p-1 border border-[#d4af37]/30">
                     <img
                       alt="AgentBucket Logo"
-                      className="w-full h-full object-contain"
-                      src="https://lh3.googleusercontent.com/aida/AEtjO1UIa34YfhyjxoiJa1OPacPFjZ06goXNFNXJlmdJ5sLWMOL31xNWqtSMz7E33RL2rVa3a4PKw-FYuBdSdlO_QpcGy3zWEmwvFjl7CscgKmBPfW0J_LmKsb3dLmnyJ1tzKa9b0gG6k5Y7GbdjZvGvPMevwlGCv9bDBlVIui-Y6tEP22yL2WOQ1lSqWCpl7H5ePIyo5xPmG3YEazX4A3Zls7v1Gp9Rd-FyHvYmG1cKsDROM88_3GjQkvDXNEau"
+                      className="w-full h-full object-cover rounded-lg"
+                      src="/bots/bot-4.svg"
                     />
                   </div>
                   <div className="flex flex-col">
@@ -267,7 +269,7 @@ export default function SignupPage() {
                       <img
                         alt="Agent Scout Bot"
                         className="w-full h-full object-cover"
-                        src="https://lh3.googleusercontent.com/aida/AEtjO1V-GdifF2cnRNnV72fsDYZlwneJTG0gm4PeqnXTs4CR1I-TqvHKG6RE5FM3s9fgELVLrN008hS9MlXDidfGl9p6DJGQz_WMfVCLtu-MWLmmWi_p8ASCjm3VdGcbmow0JoVNXqJ_zVauF9aJLBIoRG2ZAJRpN15XieaTWFWBP99wrAxHbaHxSM2CmRz85QVeJDVZr5a0W1VftAVRdGjgqRS-8QfUEIcR3jdfCdiDyxWZQGB-SRkssYK9KOYy"
+                        src="/bots/bot-1.svg"
                       />
                     </div>
                     <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#735c00] flex items-center justify-center text-white text-[10px]">

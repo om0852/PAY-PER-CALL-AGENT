@@ -68,8 +68,8 @@ export default function LoginPage() {
             <Link href="/" className="relative flex items-center gap-2.5">
               <img
                 alt="AgentBucket Logo"
-                className="h-8 w-auto object-contain"
-                src="https://lh3.googleusercontent.com/aida/AEtjO1UIa34YfhyjxoiJa1OPacPFjZ06goXNFNXJlmdJ5sLWMOL31xNWqtSMz7E33RL2rVa3a4PKw-FYuBdSdlO_QpcGy3zWEmwvFjl7CscgKmBPfW0J_LmKsb3dLmnyJ1tzKa9b0gG6k5Y7GbdjZvGvPMevwlGCv9bDBlVIui-Y6tEP22yL2WOQ1lSqWCpl7H5ePIyo5xPmG3YEazX4A3Zls7v1Gp9Rd-FyHvYmG1cKsDROM88_3GjQkvDXNEau"
+                className="h-8 w-8 object-contain rounded-lg border border-[#d4af37]/30"
+                src="/bots/bot-2.svg"
               />
               <span className="text-xl font-bold text-[#1a1a1a] tracking-tight hidden sm:inline-block">
                 AgentBucket
@@ -108,9 +108,11 @@ export default function LoginPage() {
                 Sign In
               </Link>
             </nav>
-            <div className="w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center shrink-0 shadow-sm text-white">
-              <UserIcon className="w-4 h-4" />
-            </div>
+            <img
+              alt="Avatar"
+              src="/bots/bot-3.svg"
+              className="w-8 h-8 rounded-full object-cover shadow-sm border border-[#d4af37]/30"
+            />
           </div>
         </div>
       </header>
@@ -146,11 +148,11 @@ export default function LoginPage() {
               {/* Brand Identity & Headline */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="relative w-14 h-14 rounded-2xl bg-white p-2 border border-[#d4af37]/30 shadow-[0_4px_20px_-2px_rgba(212,175,55,0.25)] flex items-center justify-center shrink-0">
+                  <div className="relative w-14 h-14 rounded-2xl bg-white p-1 border border-[#d4af37]/30 shadow-[0_4px_20px_-2px_rgba(212,175,55,0.25)] flex items-center justify-center shrink-0">
                     <img
                       alt="AgentBucket Logo"
-                      className="w-full h-full object-contain"
-                      src="https://lh3.googleusercontent.com/aida/AEtjO1UIa34YfhyjxoiJa1OPacPFjZ06goXNFNXJlmdJ5sLWMOL31xNWqtSMz7E33RL2rVa3a4PKw-FYuBdSdlO_QpcGy3zWEmwvFjl7CscgKmBPfW0J_LmKsb3dLmnyJ1tzKa9b0gG6k5Y7GbdjZvGvPMevwlGCv9bDBlVIui-Y6tEP22yL2WOQ1lSqWCpl7H5ePIyo5xPmG3YEazX4A3Zls7v1Gp9Rd-FyHvYmG1cKsDROM88_3GjQkvDXNEau"
+                      className="w-full h-full object-cover rounded-xl"
+                      src="/bots/bot-4.svg"
                     />
                     <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-[#d4af37] ring-2 ring-white rounded-full shadow-sm"></span>
                   </div>
@@ -224,7 +226,7 @@ export default function LoginPage() {
                     <img
                       alt="Voxel Sentinel"
                       className="w-full h-full object-cover"
-                      src="https://lh3.googleusercontent.com/aida/AEtjO1VeuBtt0PRIj9ExYL1tsoVLfRg_ReQniiUQJe7QZlpV_aOvS3gm07H6iWKiZHyCeYCKpoyLA37vNpc8D07XbhEW1ksojNKFlI_HDJujKD2V912H5sJijuZ9R0JTqHFxKrozrBCVWY5D9MgAoVD1Pkar3dCAIkk0Pqqn_LDWEmY5ds58owhm00T0ahMcyo9nQPkkc7kMVemhKMLjL_dAGctwJJAv7cRs_E_18kwPk0p5VK7jSGZ4xo2s9rw"
+                      src="/bots/bot-2.svg"
                     />
                     <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
                   </div>

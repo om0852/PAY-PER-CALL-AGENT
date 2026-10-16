@@ -124,9 +124,11 @@ export default function SettlementLedger({
                   {/* Buyer Agent */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-[#efeeeb] flex items-center justify-center font-bold text-[10px] text-[#1b1c1a]">
-                        {getBuyerInitials(tx.buyer)}
-                      </div>
+                      <img
+                        src="/bots/bot-1.svg"
+                        alt="Scout Alpha"
+                        className="w-6 h-6 rounded-full object-cover border border-[#d4af37]/30 shadow-sm shrink-0"
+                      />
                       <span className="font-bold text-[#1b1c1a]">
                         Scout Alpha
                       </span>
