@@ -757,17 +757,17 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       <div className="pl-64 flex flex-col min-h-screen">
         {/* ================= FIXED TOP HEADER ================= */}
         <header className="fixed top-0 left-64 right-0 h-16 bg-[#fbf9f6]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-6 border-b border-[#d4af37]/15">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             {/* Live Network Badge */}
-            <div className="flex items-center gap-2 px-3 py-1 bg-[#efeeeb] rounded-full shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20">
+            <div className="flex items-center gap-2 px-3 py-1 bg-[#efeeeb] rounded-full shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 shrink-0">
               <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
-              <span className="text-[11px] font-bold text-[#1b1c1a] tracking-wide">
+              <span className="text-[11px] font-bold text-[#1b1c1a] tracking-wide whitespace-nowrap">
                 Base Sepolia (84532)
               </span>
             </div>
 
             {/* Active Workspace Breadcrumb */}
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#5b5e66]">
+            <div className="hidden xl:flex items-center gap-1.5 text-xs text-[#5b5e66] shrink-0">
               <span>Workspace</span>
               <span>/</span>
               <span className="font-bold text-[#1b1c1a]">
@@ -786,7 +786,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
             </div>
 
             {/* Seller Payout Wallet Pill */}
-            <div className="flex items-center gap-2 bg-[#f5f3f0] px-3 py-1 rounded-full border border-[#d0c5af]/50">
+            <div className="hidden sm:flex items-center gap-2 bg-[#f5f3f0] px-3 py-1 rounded-full border border-[#d0c5af]/50 shrink-0">
               <WalletIcon className="w-3.5 h-3.5 text-[#735c00]" />
               <span className="text-xs font-mono text-[#1b1c1a] font-medium">
                 {sellerPayoutAddress.slice(0, 6)}...{sellerPayoutAddress.slice(-4)}
@@ -805,19 +805,19 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 shrink-0">
             {/* Health Audit Button */}
             <button
               onClick={handleRunHealthCheck}
               disabled={isRunningHealthCheck}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] border border-[#d0c5af]/40 transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] border border-[#d0c5af]/40 transition-all disabled:opacity-50 shrink-0"
             >
               <HeartPulse className={`w-3.5 h-3.5 text-emerald-600 ${isRunningHealthCheck ? "animate-spin" : ""}`} />
-              <span>{isRunningHealthCheck ? "Auditing..." : "Health Audit"}</span>
+              <span className="hidden md:inline">{isRunningHealthCheck ? "Auditing..." : "Health Audit"}</span>
             </button>
 
             {/* Notification Bell */}
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
                 className="p-2 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] transition-colors relative flex items-center justify-center border border-[#d0c5af]/40"
@@ -895,10 +895,10 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
             {/* Register Service Button */}
             <button
               onClick={() => setIsRegisterModalOpen(true)}
-              className="flex items-center gap-1.5 bg-[#d4af37] text-[#554300] px-4 py-2 rounded-full text-xs font-bold shadow-[0_4px_12px_rgba(212,175,55,0.25)] hover:brightness-105 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 bg-[#d4af37] text-white hover:bg-[#c39e26] px-3.5 py-1.5 rounded-full text-xs font-bold shadow-sm active:scale-95 transition-all shrink-0 whitespace-nowrap"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Register New Service</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Register New Service</span>
             </button>
 
             <div className="h-5 w-px bg-[#d0c5af]"></div>
@@ -2964,7 +2964,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 {/* Escrow Contract Details Pill */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white shadow-sm border border-[#d4af37]/20">
-                    <span className="material-symbols-outlined text-[16px] text-[#735c00]">verified</span>
+                    <ShieldCheck className="w-4 h-4 text-[#735c00] shrink-0" />
                     <span className="text-[10px] text-[#5b5e66] font-bold uppercase tracking-wider">Escrow Contract:</span>
                     <span className="font-mono text-xs text-[#1b1c1a] font-semibold">
                       {escrowContract ? `${escrowContract.slice(0, 8)}...${escrowContract.slice(-6)}` : "0x845320...e6402c"}
@@ -2977,7 +2977,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       className="text-[#5b5e66] hover:text-[#735c00] transition-colors p-0.5 rounded"
                       title="Copy Address"
                     >
-                      <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                      <Copy className="w-3.5 h-3.5" />
                     </button>
                     <a
                       className="text-[#5b5e66] hover:text-[#735c00] transition-colors p-0.5 rounded"
@@ -2986,7 +2986,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       target="_blank"
                       title="View on BaseScan"
                     >
-                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                   <span className="text-[10px] text-[#5b5e66]">
@@ -3001,7 +3001,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   onClick={handleExportCsv}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] text-xs font-semibold transition-all shadow-sm"
                 >
-                  <span className="material-symbols-outlined text-[18px]">download</span>
+                  <Download className="w-3.5 h-3.5 text-[#1b1c1a]" />
                   <span>Export CSV</span>
                 </button>
                 <button
@@ -3009,14 +3009,14 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   disabled={loadingData}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] text-xs font-semibold transition-all shadow-sm"
                 >
-                  <span className={`material-symbols-outlined text-[18px] transition-transform duration-700 ${loadingData ? "animate-spin" : ""}`}>sync</span>
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#1b1c1a] ${loadingData ? "animate-spin" : ""}`} />
                   <span>Refresh State</span>
                 </button>
                 <button
                   onClick={() => triggerToast("Modal: Injecting USDC testnet liquidity into escrow reserve...")}
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#d4af37] text-white hover:bg-[#c39e26] text-xs font-bold shadow-[0_4px_16px_rgba(212,175,55,0.25)] transition-all"
                 >
-                  <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                  <Plus className="w-3.5 h-3.5 text-white" />
                   <span>Deposit Reserve USDC</span>
                 </button>
               </div>
@@ -3028,8 +3028,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Seller Cumulative Revenue</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#efeeeb] flex items-center justify-center text-[#10b981]">
-                    <span className="material-symbols-outlined text-[18px]">payments</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                    <WalletIcon className="w-4 h-4 text-emerald-600" />
                   </div>
                 </div>
                 <div>
@@ -3055,8 +3055,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Escrow Contract Pool</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#efeeeb] flex items-center justify-center text-[#735c00]">
-                    <span className="material-symbols-outlined text-[18px]">account_balance</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f5f3f0] flex items-center justify-center text-[#735c00] shrink-0">
+                    <Shield className="w-4 h-4 text-[#735c00]" />
                   </div>
                 </div>
                 <div>
@@ -3082,8 +3082,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Buyer Balance Reserve</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#efeeeb] flex items-center justify-center text-[#2563eb]">
-                    <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                    <DollarSign className="w-4 h-4 text-blue-600" />
                   </div>
                 </div>
                 <div>
@@ -3109,8 +3109,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Relayer Gas Sponsorship</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#efeeeb] flex items-center justify-center text-[#735c00]">
-                    <span className="material-symbols-outlined text-[18px]">local_gas_station</span>
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-[#735c00] shrink-0">
+                    <Zap className="w-4 h-4 text-[#735c00]" />
                   </div>
                 </div>
                 <div>
@@ -3185,7 +3185,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 {/* Security & Audit Micro Banner */}
                 <div className="p-3 bg-[#f5f3f0] rounded-lg flex flex-wrap items-center justify-between gap-2 text-[#4d4635] text-xs">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px] text-[#735c00]">security</span>
+                    <ShieldCheck className="w-4 h-4 text-[#735c00] shrink-0" />
                     <span className="font-semibold text-[#1b1c1a]">Audited by CertiK &amp; OpenZeppelin</span>
                     <span>•</span>
                     <span>ECDSA EIP-712 Replay Protection</span>
@@ -3196,7 +3196,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                     onClick={() => triggerToast("Viewing CertiK & OpenZeppelin Smart Contract Audit Certificate...")}
                     className="text-[#735c00] hover:underline font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-0.5"
                   >
-                    View Audit Cert <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    View Audit Cert <ArrowRight className="w-3.5 h-3.5 text-[#735c00]" />
                   </button>
                 </div>
               </div>
@@ -3235,7 +3235,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   onClick={() => triggerToast("Executing Keeper diagnostic probe on Base Sepolia...")}
                   className="mt-4 w-full py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">terminal</span>
+                  <Cpu className="w-3.5 h-3.5" />
                   <span>Run Bot Diagnostics</span>
                 </button>
               </div>
@@ -3305,7 +3305,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
                   {/* Quick Search */}
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-2.5 top-2 text-[#5b5e66] text-[18px]">search</span>
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-[#5b5e66] pointer-events-none" />
                     <input
                       value={walletSearchQuery}
                       onChange={(e) => setWalletSearchQuery(e.target.value)}
@@ -3412,7 +3412,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                                   className="p-1 rounded text-[#5b5e66] hover:text-[#735c00] hover:bg-[#efeeeb] transition-colors"
                                   title="Copy Full Address"
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                                  <Copy className="w-3.5 h-3.5" />
                                 </button>
                                 <a
                                   href={`https://sepolia.basescan.org/address/${w.address}`}
@@ -3421,7 +3421,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                                   className="p-1 rounded text-[#5b5e66] hover:text-[#735c00] hover:bg-[#efeeeb] transition-colors"
                                   title="View on Block Explorer"
                                 >
-                                  <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
                                 </a>
                               </div>
                             </td>
