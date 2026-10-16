@@ -6,7 +6,17 @@ import { verifyPayment, settlePayment } from "./facilitator";
 const ajv = new Ajv({ allErrors: true });
 
 export interface SellerConfig {
-  category: "scraping" | "fx-rates" | "summarization";
+  category:
+    | "scraping"
+    | "fx-rates"
+    | "summarization"
+    | "data"
+    | "inference"
+    | "sentiment"
+    | "crypto-oracle"
+    | "compliance"
+    | "reporting"
+    | string;
   price: number; // Integer atomic units (e.g. 50000 = 0.05 USDC)
   payTo: string;
   outputSchema: Record<string, unknown>;

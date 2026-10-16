@@ -13,6 +13,10 @@ export const SELLER_WALLETS = {
   scraperJunk: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC".toLowerCase(),
   fxRates: "0x90F79bf6EB2c4f870365E785982E1f101E93b906".toLowerCase(),
   hindiSummary: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65".toLowerCase(),
+  sentiment: "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f".toLowerCase(),
+  cryptoOracle: "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720".toLowerCase(),
+  compliance: "0xBcd4042DE499D14e55001CcbB24a551F3b954096".toLowerCase(),
+  reportGen: "0x71bE63f3384f5fb98995898A86B02Fb2426c5788".toLowerCase(),
   facilitator: "0x9965507D1a55bcC2695C58ba16FB37d819B0A4df".toLowerCase(),
 };
 
@@ -64,9 +68,33 @@ export async function ensureSeededData() {
       balance: 0,
     },
     {
+      address: SELLER_WALLETS.sentiment,
+      role: "seller" as const,
+      label: "Customer Sentiment AI",
+      balance: 0,
+    },
+    {
+      address: SELLER_WALLETS.cryptoOracle,
+      role: "seller" as const,
+      label: "Base L2 Oracle Node",
+      balance: 0,
+    },
+    {
+      address: SELLER_WALLETS.compliance,
+      role: "seller" as const,
+      label: "Compliance & Risk Auditor",
+      balance: 0,
+    },
+    {
       address: SELLER_WALLETS.hindiSummary,
       role: "seller" as const,
       label: "Hindi Translation & Summary AI",
+      balance: 0,
+    },
+    {
+      address: SELLER_WALLETS.reportGen,
+      role: "seller" as const,
+      label: "Executive Report Generator",
       balance: 0,
     },
   ];
@@ -155,6 +183,75 @@ export async function ensureSeededData() {
       active: true,
     },
     {
+      name: "Customer Sentiment Analyzer",
+      category: "sentiment" as const,
+      endpoint: "/api/sellers/sentiment",
+      price: 35000, // 0.035 USDC
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      network: "eip155:84532",
+      payTo: SELLER_WALLETS.sentiment,
+      schema: {
+        type: "object",
+        required: ["sentiment", "score", "confidence", "highlights"],
+        properties: {
+          sentiment: { type: "string", enum: ["POSITIVE", "NEUTRAL", "NEGATIVE"] },
+          score: { type: "number" },
+          confidence: { type: "number" },
+          highlights: { type: "array", items: { type: "string" } },
+        },
+      },
+      active: true,
+    },
+    {
+      name: "Crypto & L2 Gas Oracle",
+      category: "crypto-oracle" as const,
+      endpoint: "/api/sellers/crypto-oracle",
+      price: 20000, // 0.02 USDC
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      network: "eip155:84532",
+      payTo: SELLER_WALLETS.cryptoOracle,
+      schema: {
+        type: "object",
+        required: ["network", "prices", "gasGwei", "timestamp"],
+        properties: {
+          network: { type: "string" },
+          prices: {
+            type: "object",
+            required: ["ETH", "USDC"],
+            properties: {
+              ETH: { type: "number" },
+              BTC: { type: "number" },
+              USDC: { type: "number" },
+            },
+          },
+          gasGwei: { type: "number" },
+          timestamp: { type: "string" },
+        },
+      },
+      active: true,
+    },
+    {
+      name: "Compliance & AML Risk Auditor",
+      category: "compliance" as const,
+      endpoint: "/api/sellers/compliance",
+      price: 40000, // 0.04 USDC
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      network: "eip155:84532",
+      payTo: SELLER_WALLETS.compliance,
+      schema: {
+        type: "object",
+        required: ["riskScore", "status", "sanctionsClear", "complianceLevel", "auditId"],
+        properties: {
+          riskScore: { type: "number" },
+          status: { type: "string", enum: ["APPROVED", "FLAGGED", "REVIEW_REQUIRED"] },
+          sanctionsClear: { type: "boolean" },
+          complianceLevel: { type: "string" },
+          auditId: { type: "string" },
+        },
+      },
+      active: true,
+    },
+    {
       name: "Hindi AI Summarizer",
       category: "summarization" as const,
       endpoint: "/api/sellers/hindi-summary",
@@ -169,6 +266,27 @@ export async function ensureSeededData() {
           originalText: { type: "string" },
           hindiSummary: { type: "string" },
           wordCount: { type: "number" },
+        },
+      },
+      active: true,
+    },
+    {
+      name: "Executive Dossier Generator",
+      category: "reporting" as const,
+      endpoint: "/api/sellers/report-generator",
+      price: 60000, // 0.06 USDC
+      asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      network: "eip155:84532",
+      payTo: SELLER_WALLETS.reportGen,
+      schema: {
+        type: "object",
+        required: ["reportId", "title", "summaryMarkdown", "dataPointsCount", "signedDigest"],
+        properties: {
+          reportId: { type: "string" },
+          title: { type: "string" },
+          summaryMarkdown: { type: "string" },
+          dataPointsCount: { type: "number" },
+          signedDigest: { type: "string" },
         },
       },
       active: true,

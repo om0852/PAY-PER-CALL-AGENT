@@ -294,6 +294,146 @@ async function runTests() {
     assert(false, "6. Hindi summary test error", err.message);
   }
 
+  // TEST 6b: Sentiment Analysis Flow
+  try {
+    const res402 = await fetch(`${BASE_URL}/api/sellers/sentiment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "Excellent high-rated five star book with verified quality." }),
+    });
+    assert(res402.status === 402, "6b. POST /api/sellers/sentiment returns 402 challenge");
+
+    const challenge = JSON.parse(Buffer.from(res402.headers.get("payment-required"), "base64").toString("utf8"));
+    const nonce = generateNonce();
+    const sigPayload = await signEIP3009(
+      challenge.payTo,
+      challenge.amount,
+      challenge.validBefore || Math.floor(Date.now() / 1000) + 3600,
+      nonce
+    );
+    const b64Sig = Buffer.from(JSON.stringify(sigPayload)).toString("base64");
+
+    const resPaid = await fetch(`${BASE_URL}/api/sellers/sentiment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PAYMENT-SIGNATURE": b64Sig,
+      },
+      body: JSON.stringify({ text: "Excellent high-rated five star book with verified quality." }),
+    });
+
+    assert(resPaid.status === 200, "6b. POST /api/sellers/sentiment returns 200 with payment");
+    const sentData = await resPaid.json();
+    assert(sentData.sentiment === "POSITIVE" && typeof sentData.score === "number", "6b. Sentiment analysis verified score & classification");
+  } catch (err) {
+    assert(false, "6b. Sentiment analysis test error", err.message);
+  }
+
+  // TEST 6c: Crypto & L2 Gas Oracle Flow
+  try {
+    const res402 = await fetch(`${BASE_URL}/api/sellers/crypto-oracle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    assert(res402.status === 402, "6c. POST /api/sellers/crypto-oracle returns 402 challenge");
+
+    const challenge = JSON.parse(Buffer.from(res402.headers.get("payment-required"), "base64").toString("utf8"));
+    const nonce = generateNonce();
+    const sigPayload = await signEIP3009(
+      challenge.payTo,
+      challenge.amount,
+      challenge.validBefore || Math.floor(Date.now() / 1000) + 3600,
+      nonce
+    );
+    const b64Sig = Buffer.from(JSON.stringify(sigPayload)).toString("base64");
+
+    const resPaid = await fetch(`${BASE_URL}/api/sellers/crypto-oracle`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PAYMENT-SIGNATURE": b64Sig,
+      },
+      body: JSON.stringify({}),
+    });
+
+    assert(resPaid.status === 200, "6c. POST /api/sellers/crypto-oracle returns 200 with payment");
+    const oracleData = await resPaid.json();
+    assert(oracleData.prices && oracleData.prices.ETH > 0, "6c. Crypto oracle returned live ETH price");
+  } catch (err) {
+    assert(false, "6c. Crypto oracle test error", err.message);
+  }
+
+  // TEST 6d: Compliance & AML Risk Auditor Flow
+  try {
+    const res402 = await fetch(`${BASE_URL}/api/sellers/compliance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendor: "Books Media Ltd" }),
+    });
+    assert(res402.status === 402, "6d. POST /api/sellers/compliance returns 402 challenge");
+
+    const challenge = JSON.parse(Buffer.from(res402.headers.get("payment-required"), "base64").toString("utf8"));
+    const nonce = generateNonce();
+    const sigPayload = await signEIP3009(
+      challenge.payTo,
+      challenge.amount,
+      challenge.validBefore || Math.floor(Date.now() / 1000) + 3600,
+      nonce
+    );
+    const b64Sig = Buffer.from(JSON.stringify(sigPayload)).toString("base64");
+
+    const resPaid = await fetch(`${BASE_URL}/api/sellers/compliance`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PAYMENT-SIGNATURE": b64Sig,
+      },
+      body: JSON.stringify({ vendor: "Books Media Ltd" }),
+    });
+
+    assert(resPaid.status === 200, "6d. POST /api/sellers/compliance returns 200 with payment");
+    const compData = await resPaid.json();
+    assert(compData.status === "APPROVED" && compData.sanctionsClear === true, "6d. Compliance audit approved vendor with sanctions clearance");
+  } catch (err) {
+    assert(false, "6d. Compliance audit test error", err.message);
+  }
+
+  // TEST 6e: Executive Report Generator Flow
+  try {
+    const res402 = await fetch(`${BASE_URL}/api/sellers/report-generator`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Multi-Agent Executive Brief" }),
+    });
+    assert(res402.status === 402, "6e. POST /api/sellers/report-generator returns 402 challenge");
+
+    const challenge = JSON.parse(Buffer.from(res402.headers.get("payment-required"), "base64").toString("utf8"));
+    const nonce = generateNonce();
+    const sigPayload = await signEIP3009(
+      challenge.payTo,
+      challenge.amount,
+      challenge.validBefore || Math.floor(Date.now() / 1000) + 3600,
+      nonce
+    );
+    const b64Sig = Buffer.from(JSON.stringify(sigPayload)).toString("base64");
+
+    const resPaid = await fetch(`${BASE_URL}/api/sellers/report-generator`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "PAYMENT-SIGNATURE": b64Sig,
+      },
+      body: JSON.stringify({ title: "Multi-Agent Executive Brief" }),
+    });
+
+    assert(resPaid.status === 200, "6e. POST /api/sellers/report-generator returns 200 with payment");
+    const repData = await resPaid.json();
+    assert(repData.signedDigest && repData.summaryMarkdown.includes("Executive"), "6e. Executive report delivered with signed digest hash");
+  } catch (err) {
+    assert(false, "6e. Executive report test error", err.message);
+  }
+
   // TEST 7, 8, 9: Facilitator Verify, Replay Defense, and Tamper Defense
   try {
     const replayNonce = generateNonce();

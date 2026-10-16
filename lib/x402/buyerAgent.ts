@@ -35,7 +35,15 @@ export interface AgentStepEvent {
 
 export interface PlanStep {
   stepIndex: number;
-  category: "scraping" | "fx-rates" | "summarization";
+  category:
+    | "scraping"
+    | "fx-rates"
+    | "summarization"
+    | "sentiment"
+    | "crypto-oracle"
+    | "compliance"
+    | "reporting"
+    | string;
   description: string;
   input: Record<string, unknown>;
 }
@@ -71,12 +79,12 @@ export function broadcastRunEvent(runId: string, event: AgentStepEvent) {
   }
 }
 
-// 1. Planner: transforms user request into structured steps
+// 1. Planner: transforms user request into structured steps across services
 export async function planTask(taskPrompt: string): Promise<PlanStep[]> {
   try {
-    const prompt = `You are a high-efficiency buyer agent coordinator.
+    const prompt = `You are a high-efficiency buyer agent coordinator on Base Sepolia.
 Break down this user task into an array of ordered sub-calls.
-Supported categories are strictly: "scraping", "fx-rates", "summarization".
+Supported categories are strictly: "scraping", "fx-rates", "sentiment", "crypto-oracle", "compliance", "summarization", "reporting".
 
 Task: "${taskPrompt}"
 
@@ -84,7 +92,10 @@ Respond with ONLY valid JSON in this exact structure:
 [
   { "stepIndex": 1, "category": "scraping", "description": "Scrape book catalogue", "input": {} },
   { "stepIndex": 2, "category": "fx-rates", "description": "Fetch GBP to INR exchange rate", "input": { "base": "GBP", "target": "INR" } },
-  { "stepIndex": 3, "category": "summarization", "description": "Summarize top books in Hindi", "input": { "text": "placeholder" } }
+  { "stepIndex": 3, "category": "sentiment", "description": "Analyze customer sentiment", "input": { "text": "Five star rated travel book" } },
+  { "stepIndex": 4, "category": "crypto-oracle", "description": "Fetch Base L2 gas & crypto rates", "input": {} },
+  { "stepIndex": 5, "category": "compliance", "description": "Run vendor AML sanctions audit", "input": { "vendor": "Books Supplier UK" } },
+  { "stepIndex": 6, "category": "reporting", "description": "Generate executive dossier", "input": { "title": "Market Brief" } }
 ]`;
 
     const rawText = await queryLLM(prompt);
@@ -102,33 +113,118 @@ Respond with ONLY valid JSON in this exact structure:
   const steps: PlanStep[] = [];
   const lower = taskPrompt.toLowerCase();
 
-  // If asking for scraping or books
+  // If user requests the full enterprise/master intelligence pipeline
+  if (
+    lower.includes("master") ||
+    lower.includes("enterprise") ||
+    lower.includes("large task") ||
+    lower.includes("all service") ||
+    lower.includes("full intelligence") ||
+    lower.includes("complete demo")
+  ) {
+    return [
+      {
+        stepIndex: 1,
+        category: "scraping",
+        description: "Scrape international catalogue for books & inventory prices",
+        input: { url: "http://books.toscrape.com/catalogue/category/books/travel_2/index.html" },
+      },
+      {
+        stepIndex: 2,
+        category: "fx-rates",
+        description: "Fetch real-time foreign currency rates (GBP to INR)",
+        input: { base: "GBP", target: "INR" },
+      },
+      {
+        stepIndex: 3,
+        category: "sentiment",
+        description: "Analyze customer review corpus & buyer sentiment score",
+        input: { text: "Outstanding 5-star verified customer feedback on travel guides." },
+      },
+      {
+        stepIndex: 4,
+        category: "crypto-oracle",
+        description: "Fetch Base Sepolia L2 gas parameters & crypto oracle rates",
+        input: {},
+      },
+      {
+        stepIndex: 5,
+        category: "compliance",
+        description: "Screen vendor entities for sanctions & AML compliance clearance",
+        input: { vendor: "International Books Media Ltd" },
+      },
+      {
+        stepIndex: 6,
+        category: "reporting",
+        description: "Synthesize executive intelligence dossier with cryptographic digest",
+        input: { title: "Executive Cross-Border Market Dossier" },
+      },
+    ];
+  }
+
+  // Selective modular pipeline
+  let stepCounter = 1;
+
   if (lower.includes("book") || lower.includes("scrape") || lower.includes("catalog") || lower.includes("price") || steps.length === 0) {
     steps.push({
-      stepIndex: 1,
+      stepIndex: stepCounter++,
       category: "scraping",
       description: "Scrape books catalogue to find available titles & ratings",
       input: { url: "http://books.toscrape.com/catalogue/category/books/travel_2/index.html" },
     });
   }
 
-  // If asking for currency / fx / inr / convert
-  if (lower.includes("inr") || lower.includes("currency") || lower.includes("fx") || lower.includes("convert") || lower.includes("rate") || steps.length === 1) {
+  if (lower.includes("inr") || lower.includes("currency") || lower.includes("fx") || lower.includes("convert") || lower.includes("rate")) {
     steps.push({
-      stepIndex: 2,
+      stepIndex: stepCounter++,
       category: "fx-rates",
       description: "Fetch GBP to INR currency exchange rates",
       input: { base: "GBP", target: "INR" },
     });
   }
 
-  // If asking for summary or hindi
-  if (lower.includes("hindi") || lower.includes("summary") || lower.includes("summarize") || steps.length === 2) {
+  if (lower.includes("sentiment") || lower.includes("review") || lower.includes("feedback")) {
     steps.push({
-      stepIndex: 3,
+      stepIndex: stepCounter++,
+      category: "sentiment",
+      description: "Analyze customer review corpus and sentiment score",
+      input: { text: "Verified customer reviews and rating analysis" },
+    });
+  }
+
+  if (lower.includes("crypto") || lower.includes("gas") || lower.includes("oracle") || lower.includes("eth")) {
+    steps.push({
+      stepIndex: stepCounter++,
+      category: "crypto-oracle",
+      description: "Fetch Base Sepolia L2 gas and crypto oracle prices",
+      input: {},
+    });
+  }
+
+  if (lower.includes("compliance") || lower.includes("sanction") || lower.includes("risk") || lower.includes("aml") || lower.includes("audit")) {
+    steps.push({
+      stepIndex: stepCounter++,
+      category: "compliance",
+      description: "Perform AML sanctions check and vendor compliance audit",
+      input: { vendor: "Global Vendor Entity" },
+    });
+  }
+
+  if (lower.includes("hindi") || lower.includes("summary") || lower.includes("summarize")) {
+    steps.push({
+      stepIndex: stepCounter++,
       category: "summarization",
       description: "Synthesize findings and generate Hindi summary",
       input: { text: "Scraped travel books review and converted exchange rate" },
+    });
+  }
+
+  if (lower.includes("report") || lower.includes("dossier") || lower.includes("executive")) {
+    steps.push({
+      stepIndex: stepCounter++,
+      category: "reporting",
+      description: "Generate executive dossier with cryptographic verification digest",
+      input: { title: "Market Intelligence Dossier" },
     });
   }
 

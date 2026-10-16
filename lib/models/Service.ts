@@ -9,7 +9,17 @@ export interface IServiceHealth {
 
 export interface IService {
   name: string;
-  category: "scraping" | "fx-rates" | "summarization" | "data" | "inference";
+  category:
+    | "scraping"
+    | "fx-rates"
+    | "summarization"
+    | "data"
+    | "inference"
+    | "sentiment"
+    | "crypto-oracle"
+    | "compliance"
+    | "reporting"
+    | string;
   endpoint: string;
   price: number; // Integer atomic units (e.g. 50000 = 0.05 USDC)
   asset: string;
@@ -31,7 +41,17 @@ const ServiceSchema = new Schema<IService>(
     },
     category: {
       type: String,
-      enum: ["scraping", "fx-rates", "summarization", "data", "inference"],
+      enum: [
+        "scraping",
+        "fx-rates",
+        "summarization",
+        "data",
+        "inference",
+        "sentiment",
+        "crypto-oracle",
+        "compliance",
+        "reporting",
+      ],
       required: true,
       index: true,
     },

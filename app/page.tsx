@@ -569,8 +569,16 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       case "data":
       case "fx-rates":
         return <TrendingUp className="w-4 h-4 text-[#735c00]" />;
+      case "sentiment":
+        return <HeartPulse className="w-4 h-4 text-rose-600" />;
+      case "crypto-oracle":
+        return <Cpu className="w-4 h-4 text-[#735c00]" />;
+      case "compliance":
+        return <ShieldCheck className="w-4 h-4 text-emerald-600" />;
       case "summarization":
         return <MessageSquare className="w-4 h-4 text-[#735c00]" />;
+      case "reporting":
+        return <FileText className="w-4 h-4 text-[#735c00]" />;
       default:
         return <Layers className="w-4 h-4 text-[#735c00]" />;
     }
@@ -1763,8 +1771,38 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                     </div>
 
                     {/* Presets */}
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Judge Demo Presets:</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-[#5b5e66]">Judge Demo Presets:</span>
+                        <span className="text-[9px] bg-[#d4af37]/20 text-[#554300] font-bold px-2 py-0.5 rounded-full">
+                          8 Micro-Services Active
+                        </span>
+                      </div>
+
+                      {/* Master Multi-Agent Pipeline */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTaskPrompt("Execute master enterprise intelligence: scrape international catalogue, convert foreign prices to rupees, evaluate customer review sentiment, query Base L2 gas & crypto oracle, perform vendor AML compliance audit, and compile executive dossier.");
+                          setBudgetUsdc(0.75);
+                          setConcurrency(4);
+                        }}
+                        className="w-full p-2.5 rounded-lg bg-gradient-to-r from-[#d4af37]/15 via-white to-[#d4af37]/10 hover:border-[#d4af37] text-left border border-[#d4af37]/40 transition-all shadow-sm group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-[#1b1c1a] group-hover:text-[#735c00] flex items-center gap-1.5">
+                            <span>🌟 6-Step Master Enterprise Mission</span>
+                            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-bold">
+                              FULL DEMO
+                            </span>
+                          </span>
+                          <span className="font-mono text-[10px] font-bold text-[#735c00]">$0.75 USDC</span>
+                        </div>
+                        <div className="text-[10px] text-[#5b5e66] mt-0.5">
+                          Scrape + FX Rates + Sentiment + L2 Oracle + AML Compliance + Executive Dossier
+                        </div>
+                      </button>
+
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
                         <button
                           type="button"
@@ -1812,7 +1850,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                         <input
                           type="range"
                           min="0.01"
-                          max="1.00"
+                          max="2.00"
                           step="0.01"
                           value={budgetUsdc}
                           onChange={(e) => setBudgetUsdc(parseFloat(e.target.value))}
