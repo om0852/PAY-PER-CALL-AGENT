@@ -44,11 +44,14 @@ import {
   BookOpen,
   Trash2,
   Star,
+  Receipt,
+  Coins,
 } from "lucide-react";
 
 import SchemaModal from "@/components/provider/SchemaModal";
 import RegisterServiceModal from "@/components/provider/RegisterServiceModal";
 import ServiceRatingModal from "@/components/provider/ServiceRatingModal";
+import TransactionDetailModal from "@/components/provider/TransactionDetailModal";
 
 interface WalletData {
   _id: string;
@@ -170,6 +173,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       const path = window.location.pathname.replace(/^\/+/, "");
       if (path === "services") return "services";
       if (path === "dispatcher") return "dispatcher";
+      if (path === "transactions" || path === "tx") return "transactions";
       if (path === "analytics") return "analytics";
       if (path === "revenue" || path === "escrow") return "revenue";
       if (path === "api-keys" || path === "api") return "api";
@@ -215,6 +219,10 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   const [selectedServiceForSchema, setSelectedServiceForSchema] = useState<ServiceData | null>(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [selectedServiceForRating, setSelectedServiceForRating] = useState<ServiceData | null>(null);
+  const [selectedTxForDetail, setSelectedTxForDetail] = useState<LedgerEntry | null>(null);
+  const [isTxDetailModalOpen, setIsTxDetailModalOpen] = useState(false);
+  const [txFilterTab, setTxFilterTab] = useState<"all" | "settled" | "disputes">("all");
+  const [txSearchQuery, setTxSearchQuery] = useState("");
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -706,6 +714,24 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     return true;
   });
 
+  // Filtered transactions for Dedicated Transactions & Settlements tab
+  const filteredTransactions = ledger.filter((entry) => {
+    if (txFilterTab === "settled" && entry.status !== "SETTLED") return false;
+    if (txFilterTab === "disputes" && entry.status === "SETTLED") return false;
+    if (txSearchQuery.trim()) {
+      const q = txSearchQuery.toLowerCase();
+      return (
+        entry.serviceName.toLowerCase().includes(q) ||
+        entry.buyer.toLowerCase().includes(q) ||
+        entry.seller.toLowerCase().includes(q) ||
+        entry.category.toLowerCase().includes(q) ||
+        entry.taskId.toLowerCase().includes(q) ||
+        (entry.txHash && entry.txHash.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
   // Filtered participant wallets for Revenue & Escrow
   const filteredWallets = wallets.filter((w) => {
     if (walletRoleFilter !== "ALL" && w.role.toUpperCase() !== walletRoleFilter) return false;
@@ -804,6 +830,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               { id: "overview", label: "Overview", icon: LayoutDashboard },
               { id: "services", label: "Agent Services", icon: Bot },
               { id: "dispatcher", label: "Buyer Scout Dispatcher", icon: Zap },
+              { id: "transactions", label: "Transactions & Settlements", icon: Receipt },
               { id: "analytics", label: "Executions & Analytics", icon: Activity },
               { id: "revenue", label: "Revenue & Escrow", icon: WalletIcon },
               { id: "api", label: "API & Webhooks", icon: Key },
@@ -892,6 +919,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   ? "Agent Services"
                   : activeNavTab === "dispatcher"
                   ? "Buyer Scout Dispatcher"
+                  : activeNavTab === "transactions"
+                  ? "Transactions & Settlements"
                   : activeNavTab === "analytics"
                   ? "Executions & Analytics"
                   : activeNavTab === "revenue"
@@ -1418,10 +1447,10 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   <h3 className="text-sm font-bold text-[#1b1c1a]">Recent Inbound Micro-Settlements</h3>
                 </div>
                 <button
-                  onClick={() => handleNavClick("analytics")}
+                  onClick={() => handleNavClick("transactions")}
                   className="text-xs font-bold text-[#735c00] hover:underline flex items-center gap-1"
                 >
-                  <span>View Full Ledger ({ledger.length} entries)</span>
+                  <span>View All Transactions &amp; Breakdowns ({ledger.length})</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -1435,12 +1464,20 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       <th className="py-2.5 px-3">Fee (USDC)</th>
                       <th className="py-2.5 px-3">Latency</th>
                       <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-3 rounded-r-md text-right">Proof</th>
+                      <th className="py-2.5 px-3 text-right">On-Chain Proof</th>
+                      <th className="py-2.5 px-3 rounded-r-md text-right">Breakdown</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#efeeeb]">
                     {ledger.slice(0, 5).map((l) => (
-                      <tr key={l._id} className="hover:bg-[#f5f3f0]/50 transition-colors">
+                      <tr
+                        key={l._id}
+                        onClick={() => {
+                          setSelectedTxForDetail(l);
+                          setIsTxDetailModalOpen(true);
+                        }}
+                        className="hover:bg-[#f5f3f0] cursor-pointer transition-colors group"
+                      >
                         <td className="py-2.5 px-3 font-mono text-[11px] text-[#5b5e66]">
                           {new Date(l.createdAt).toLocaleTimeString()}
                         </td>
@@ -1467,6 +1504,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                               href={`https://sepolia.basescan.org/tx/${l.txHash}`}
                               target="_blank"
                               rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
                               className="font-mono text-[11px] text-[#735c00] hover:underline"
                             >
                               {l.txHash.slice(0, 8)}...
@@ -1474,6 +1512,20 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                           ) : (
                             <span className="text-[11px] text-[#5b5e66]">Gasless</span>
                           )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTxForDetail(l);
+                              setIsTxDetailModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5f3f0] hover:bg-[#eae8e5] text-[#735c00] text-[10px] font-bold border border-[#d0c5af]/30 shadow-xs"
+                            type="button"
+                          >
+                            <Receipt className="w-3 h-3" />
+                            <span>Breakdown</span>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2918,7 +2970,501 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
           </div>
         )}
 
-        {/* 4. EXECUTIONS & ANALYTICS DEDICATED VIEW */}
+        {/* 4. TRANSACTIONS & SETTLEMENTS DEDICATED VIEW */}
+        {activeNavTab === "transactions" && (
+          <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
+            {/* Top Header Banner & Context */}
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-[#d4af37]/20 bg-white p-6 md:p-8 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-xs text-[#5b5e66]">
+                    <span className="hover:text-[#735c00] transition-colors cursor-pointer font-bold uppercase tracking-wider text-[10px]">
+                      Workspace
+                    </span>
+                    <span className="text-[#d0c5af]">/</span>
+                    <span className="text-[#1b1c1a] font-bold uppercase tracking-wider text-[10px]">
+                      Transactions &amp; Settlements
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 shadow-sm ml-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-[10px] text-emerald-800 font-bold tracking-wider">
+                      {settledCalls} Settled Micro-Transactions
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#d4af37]/20 text-[#735c00] text-[10px] font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>EIP-3009 Gasless Settlement</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">
+                    <span>Base Sepolia (84532)</span>
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <h1 className="text-2xl md:text-3xl font-bold text-[#1b1c1a] tracking-tight">
+                    Transactions &amp; Financial Breakdown
+                  </h1>
+                </div>
+                <p className="text-xs md:text-sm text-[#5b5e66] max-w-4xl leading-relaxed mt-0.5">
+                  Complete verifiable ledger of user transactions. Inspect transparent mathematical breakdowns of gross service fees, sponsored L2 gas fees, and cryptographic EIP-3009 authorizations.
+                </p>
+              </div>
+
+              {/* Header Action Controls */}
+              <div className="flex items-center gap-3 flex-wrap self-start xl:self-auto">
+                <div className="flex items-center gap-2 bg-[#f5f3f0] px-3 py-2 rounded-full shadow-sm text-[#5b5e66] border border-[#d0c5af]/40">
+                  <RotateCw className="w-3.5 h-3.5 text-[#735c00] animate-spin" style={{ animationDuration: "3.5s" }} />
+                  <span className="text-[11px] font-semibold tracking-wide text-[#1b1c1a]">Live Ledger Sync</span>
+                </div>
+                <button
+                  onClick={refreshAllData}
+                  aria-label="Refresh transactions"
+                  className="w-9 h-9 rounded-full bg-[#f5f3f0] hover:bg-[#eae8e5] flex items-center justify-center text-[#1b1c1a] transition-all shadow-sm border border-[#d0c5af]/40"
+                  type="button"
+                  title="Refresh transactions"
+                >
+                  <RotateCw className="w-4 h-4 text-[#735c00]" />
+                </button>
+                <button
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-2 bg-[#1b1c1a] text-white px-4 py-2 rounded-full text-xs font-bold shadow-md hover:bg-[#30312f] active:scale-95 transition-all"
+                  type="button"
+                >
+                  <Download className="w-4 h-4 text-[#ffe088]" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Test Wallets & Balance Routing Card */}
+            <div className="bg-gradient-to-r from-[#fbf9f6] via-white to-[#fbf9f6] rounded-xl p-5 border-2 border-[#d4af37]/30 shadow-sm flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#efeeeb]">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#d4af37]/20 flex items-center justify-center text-[#735c00]">
+                    <WalletIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#1b1c1a]">
+                      Platform Test Wallets &amp; Micro-Settlement Routing
+                    </h3>
+                    <p className="text-[11px] text-[#5b5e66]">
+                      Transactions settle instantly in-platform via cryptographic EIP-3009 typed authorizations between these designated test wallets.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold self-start sm:self-auto">
+                  Gasless Dual-Tier Engine Active
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Buyer Test Wallet */}
+                <div className="bg-white p-3.5 rounded-lg border border-[#d0c5af]/40 shadow-sm flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#735c00]">
+                      1. User Buyer Test Wallet
+                    </span>
+                    <span className="text-[10px] font-mono bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">
+                      Payer
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <span className="font-mono text-xs font-bold text-[#1b1c1a]">
+                      0xf39F...2266
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+                        triggerToast("Buyer wallet copied to clipboard");
+                      }}
+                      className="text-[#5b5e66] hover:text-[#735c00] p-1"
+                      title="Copy full address"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#5b5e66]">
+                    Autonomous agent wallet authorized to sign EIP-3009 transfers without MetaMask prompt delays.
+                  </p>
+                </div>
+
+                {/* Seller Payout Wallet */}
+                <div className="bg-white p-3.5 rounded-lg border border-[#d0c5af]/40 shadow-sm flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#735c00]">
+                      2. Service Provider Payout Wallet
+                    </span>
+                    <span className="text-[10px] font-mono bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">
+                      Beneficiary
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <span className="font-mono text-xs font-bold text-[#1b1c1a]">
+                      {sellerPayoutAddress.slice(0, 6)}...{sellerPayoutAddress.slice(-4)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(sellerPayoutAddress);
+                        triggerToast("Seller payout address copied");
+                      }}
+                      className="text-[#5b5e66] hover:text-[#735c00] p-1"
+                      title="Copy full address"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#5b5e66]">
+                    Receives 100% of the gross listed service fee with zero platform deductions.
+                  </p>
+                </div>
+
+                {/* Facilitator Relayer */}
+                <div className="bg-white p-3.5 rounded-lg border border-[#d0c5af]/40 shadow-sm flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#735c00]">
+                      3. Facilitator Relayer
+                    </span>
+                    <span className="text-[10px] font-mono bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">
+                      Gas Sponsor
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <span className="font-mono text-xs font-bold text-[#1b1c1a]">
+                      0x9965...A4dc
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText("0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc");
+                        triggerToast("Relayer address copied");
+                      }}
+                      className="text-[#5b5e66] hover:text-[#735c00] p-1"
+                      title="Copy full address"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#5b5e66]">
+                    Submits receiveWithAuthorization on Base Sepolia, sponsoring 100% of transaction gas.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 4 Top KPI Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* KPI 1: Total Completed Transactions */}
+              <div className="relative bg-white p-5 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 flex flex-col justify-between overflow-hidden group hover:shadow-[0_8px_24px_rgba(212,175,55,0.14)] transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Total Transactions</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#efeeeb] flex items-center justify-center text-[#1b1c1a]">
+                    <Receipt className="w-4 h-4 text-[#735c00]" />
+                  </div>
+                </div>
+                <div className="my-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-[#1b1c1a] tracking-tight font-mono">{ledger.length}</span>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded font-mono">
+                    {settledCalls} Settled
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[#5b5e66] text-[11px] pt-1.5 border-t border-[#efeeeb]">
+                  <span>Cryptographic validations</span>
+                  <span className="font-mono text-emerald-700 font-bold">100% Valid</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#d4af37] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+
+              {/* KPI 2: Total USDC Settled Volume */}
+              <div className="relative bg-white p-5 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 flex flex-col justify-between overflow-hidden group hover:shadow-[0_8px_24px_rgba(212,175,55,0.14)] transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Total Net Volume</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="my-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-emerald-700 tracking-tight font-mono">+${totalRevenueUsdc}</span>
+                  <span className="text-[10px] text-[#5b5e66] font-semibold">USDC</span>
+                </div>
+                <div className="flex items-center justify-between text-[#5b5e66] text-[11px] pt-1.5 border-t border-[#efeeeb]">
+                  <span>Micro-settlement transfers</span>
+                  <span className="font-mono text-emerald-700 font-bold">Direct Escrow</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+
+              {/* KPI 3: Gas Fees Sponsored */}
+              <div className="relative bg-white p-5 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 flex flex-col justify-between overflow-hidden group hover:shadow-[0_8px_24px_rgba(212,175,55,0.14)] transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">User Gas Fees</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="my-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-emerald-700 tracking-tight font-mono">$0.0000</span>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded font-mono">
+                    100% Free
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[#5b5e66] text-[11px] pt-1.5 border-t border-[#efeeeb]">
+                  <span>L2 Gas relayer sponsored</span>
+                  <span className="font-mono text-emerald-700 font-bold">Zero User Gas</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+
+              {/* KPI 4: Median Settlement Latency */}
+              <div className="relative bg-white p-5 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 flex flex-col justify-between overflow-hidden group hover:shadow-[0_8px_24px_rgba(212,175,55,0.14)] transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Median Latency</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#efeeeb] flex items-center justify-center text-[#735c00]">
+                    <Gauge className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="my-2 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-[#1b1c1a] tracking-tight font-mono">{medianLatency}</span>
+                  <span className="text-xs font-normal text-[#5b5e66]">ms</span>
+                  <span className="text-[10px] text-[#5b5e66] font-mono ml-auto">P99: {p99Latency}ms</span>
+                </div>
+                <div className="flex items-center justify-between text-[#5b5e66] text-[11px] pt-1.5 border-t border-[#efeeeb]">
+                  <span>Fast micro-settlement speed</span>
+                  <span className="font-mono text-[#1b1c1a] font-semibold">Real-time</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#d4af37] to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+            </div>
+
+            {/* Complete Transactions Table Card */}
+            <div className="bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 overflow-hidden">
+              {/* Table Header Bar */}
+              <div className="p-5 md:p-6 border-b border-[#efeeeb] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-[#1b1c1a]">Complete User Transactions</h2>
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#efeeeb] text-[#1b1c1a] text-[11px] font-bold font-mono">
+                      {ledger.length} Invocations
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5b5e66]">
+                    Click &ldquo;View Breakdown&rdquo; on any transaction row to inspect itemized financial deductions, gas sponsorships, and EIP-3009 typed data proofs.
+                  </p>
+                </div>
+
+                {/* Filter Controls & Search */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 text-[#5b5e66] w-4 h-4 pointer-events-none" />
+                    <input
+                      value={txSearchQuery}
+                      onChange={(e) => setTxSearchQuery(e.target.value)}
+                      placeholder="Filter by Tx Hash, Service, Nonce..."
+                      className="pl-9 pr-3 py-1.5 rounded-xl bg-white text-[#1b1c1a] text-xs border border-[#d0c5af]/50 focus:outline-none focus:ring-1 focus:ring-[#d4af37] w-64 shadow-inner"
+                      type="text"
+                    />
+                  </div>
+                  <div className="flex items-center bg-[#f5f3f0] p-1 rounded-xl border border-[#d0c5af]/30 text-xs font-semibold">
+                    <button
+                      onClick={() => setTxFilterTab("all")}
+                      className={`px-3 py-1 rounded-lg transition-all ${
+                        txFilterTab === "all"
+                          ? "bg-white text-[#1b1c1a] font-bold shadow-sm"
+                          : "text-[#5b5e66] hover:text-[#1b1c1a]"
+                      }`}
+                    >
+                      All ({ledger.length})
+                    </button>
+                    <button
+                      onClick={() => setTxFilterTab("settled")}
+                      className={`px-3 py-1 rounded-lg transition-all ${
+                        txFilterTab === "settled"
+                          ? "bg-white text-[#1b1c1a] font-bold shadow-sm"
+                          : "text-[#5b5e66] hover:text-[#1b1c1a]"
+                      }`}
+                    >
+                      Settled ({settledCalls})
+                    </button>
+                    <button
+                      onClick={() => setTxFilterTab("disputes")}
+                      className={`px-3 py-1 rounded-lg transition-all ${
+                        txFilterTab === "disputes"
+                          ? "bg-white text-[#1b1c1a] font-bold shadow-sm"
+                          : "text-[#5b5e66] hover:text-[#1b1c1a]"
+                      }`}
+                    >
+                      Disputes ({schemaDisputes})
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#f5f3f0] text-[#5b5e66] text-[10px] uppercase tracking-wider font-bold border-b border-[#efeeeb]">
+                      <th className="py-3 px-4">Time / Nonce</th>
+                      <th className="py-3 px-4">Buyer Agent</th>
+                      <th className="py-3 px-4">Invoiced Service</th>
+                      <th className="py-3 px-4 text-right">Gross Listed</th>
+                      <th className="py-3 px-4 text-center">L2 Gas Fee</th>
+                      <th className="py-3 px-4 text-right">Net Settled</th>
+                      <th className="py-3 px-4 text-center">Quality SLA</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Amount Breakdown</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#efeeeb]">
+                    {filteredTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-[#5b5e66]">
+                          No transaction records match the active filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTransactions.map((entry, idx) => {
+                        const isSettled = entry.status === "SETTLED";
+                        const isDispute = entry.status && entry.status.includes("FAILED");
+                        const grossUsdc = ((entry.listedPrice || 0) / 1e6).toFixed(4);
+                        const netUsdc = ((entry.paidPrice || 0) / 1e6).toFixed(4);
+                        const rating = entry.scoreBreakdown?.overallRating || entry.userRating || 5.0;
+
+                        return (
+                          <tr
+                            key={entry._id || entry.id || idx}
+                            onClick={() => {
+                              setSelectedTxForDetail(entry);
+                              setIsTxDetailModalOpen(true);
+                            }}
+                            className={`hover:bg-[#f5f3f0]/80 cursor-pointer transition-colors group ${
+                              isDispute ? "bg-rose-50/20" : ""
+                            }`}
+                          >
+                            {/* Time / Nonce */}
+                            <td className="py-3 px-4 font-mono text-[11px] text-[#5b5e66] whitespace-nowrap">
+                              <span className="text-[#1b1c1a] font-semibold block">
+                                {new Date(entry.createdAt).toLocaleTimeString()}
+                              </span>
+                              <span className="text-[10px] text-[#735c00] font-mono">
+                                #{entry.taskId ? entry.taskId.slice(-8) : `0988${idx}-A`}
+                              </span>
+                            </td>
+
+                            {/* Buyer Agent */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <img
+                                  alt="Buyer Bot Avatar"
+                                  className="w-6 h-6 rounded-md object-cover shadow-sm border border-[#d4af37]/30"
+                                  src="/bots/bot-1.svg"
+                                />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-[#1b1c1a] text-xs">Buyer Scout Alpha</span>
+                                  <span className="font-mono text-[10px] text-[#5b5e66]">
+                                    {entry.buyer.slice(0, 6)}...{entry.buyer.slice(-4)}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Invoiced Service */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-[#1b1c1a]">{entry.serviceName}</span>
+                                <span className="text-[10px] text-[#5b5e66] uppercase tracking-wider font-semibold">
+                                  {entry.category}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Gross Listed */}
+                            <td className="py-3 px-4 text-right font-mono whitespace-nowrap font-medium text-[#1b1c1a]">
+                              ${grossUsdc} USDC
+                            </td>
+
+                            {/* L2 Gas Fee */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono text-[10px] font-bold border border-emerald-200">
+                                <Zap className="w-3 h-3 text-emerald-600" />
+                                Sponsored ($0.00)
+                              </span>
+                            </td>
+
+                            {/* Net Settled */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              {isSettled ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold text-xs border border-emerald-200/50">
+                                  <Check className="w-3.5 h-3.5" />
+                                  +${netUsdc} USDC
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 font-mono font-bold text-xs">
+                                  <span>✕</span>
+                                  $0.0000 (Refunded)
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Quality SLA */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-[#735c00] text-[10px] font-bold border border-[#d4af37]/30">
+                                <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
+                                <span>{rating.toFixed(1)}</span>
+                                <span className="text-[9px] text-[#5b5e66]">({entry.latencyMs}ms)</span>
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  isSettled
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-rose-100 text-rose-800"
+                                }`}
+                              >
+                                {isSettled ? "Settled (200)" : "Refunded"}
+                              </span>
+                            </td>
+
+                            {/* Amount Breakdown Button */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTxForDetail(entry);
+                                  setIsTxDetailModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#735c00] text-white hover:opacity-90 active:scale-95 transition-all text-xs font-bold shadow-sm shadow-[#d4af37]/20"
+                                type="button"
+                              >
+                                <Receipt className="w-3.5 h-3.5" />
+                                <span>View Breakdown</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Table Footer */}
+              <div className="p-4 bg-[#f5f3f0] border-t border-[#efeeeb] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#5b5e66]">
+                <div className="flex items-center gap-3">
+                  <span>Showing <strong>{filteredTransactions.length}</strong> of <strong>{ledger.length}</strong> transactions</span>
+                  <span>•</span>
+                  <span>Settled Volume: <strong className="text-emerald-700 font-mono">+${totalRevenueUsdc} USDC</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px]">Authorized via EIP-3009 ReceiveWithAuthorization on Base Sepolia</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. EXECUTIONS & ANALYTICS DEDICATED VIEW */}
         {activeNavTab === "analytics" && (
           <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
             {/* Top Header Banner & Context */}
@@ -3363,13 +3909,15 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                             <td className="py-3 px-4 text-right whitespace-nowrap">
                               <button
                                 onClick={() => {
-                                  triggerToast(`Cryptographic receipt verified on Base Sepolia: ${entry.taskId}`);
+                                  setSelectedTxForDetail(entry);
+                                  setIsTxDetailModalOpen(true);
                                 }}
-                                className="text-[#5b5e66] hover:text-[#735c00] transition-colors p-1 rounded hover:bg-[#efeeeb]"
-                                title="View cryptographic receipt"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#f5f3f0] hover:bg-[#eae8e5] text-[#735c00] hover:text-[#1b1c1a] transition-all font-semibold text-xs border border-[#d0c5af]/30 shadow-sm"
+                                title="View amount breakdown & cryptographic audit"
                                 type="button"
                               >
-                                <FileText className="w-4 h-4" />
+                                <Receipt className="w-3.5 h-3.5 text-[#d4af37]" />
+                                <span>Breakdown</span>
                               </button>
                             </td>
                           </tr>
@@ -4210,6 +4758,13 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
           triggerToast(`⭐ Recorded ${rating}/5 rating for ${selectedServiceForRating?.name || "service"}!`);
           await refreshAllData();
         }}
+      />
+
+      {/* Transaction & Settlement Breakdown Modal */}
+      <TransactionDetailModal
+        isOpen={isTxDetailModalOpen}
+        onClose={() => setIsTxDetailModalOpen(false)}
+        tx={selectedTxForDetail}
       />
     </div>
   );
