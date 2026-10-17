@@ -1,6 +1,31 @@
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #735c00;
+  --color-primary-container: #d4af37;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #554300;
+  --color-primary-fixed: #ffe088;
+  --color-primary-fixed-dim: #e9c349;
+  --color-surface: #fbf9f6;
+  --color-surface-bright: #fbf9f6;
+  --color-on-surface: #1b1c1a;
+  --color-on-surface-variant: #4d4635;
+  --color-surface-container: #efeeeb;
+  --color-surface-container-low: #f5f3f0;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #eae8e5;
+  --color-surface-container-highest: #e4e2df;
+  --color-outline: #7f7663;
+  --color-outline-variant: #d0c5af;
+  --color-secondary: #5b5e66;
+  --color-secondary-container: #dfe2eb;
+  --color-on-secondary-container: #61646c;
+  --color-inverse-surface: #30312f;
+  --color-inverse-on-surface: #f2f0ed;
+}
+
 :root {
   --background: #fbf9f6;
   --foreground: #1b1c1a;
