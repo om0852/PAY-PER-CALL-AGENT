@@ -4,7 +4,7 @@
  */
 
 // Public production backend or local IP address for Expo Go physical device testing
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://10.44.236.219:3000";
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "https://pay-per-call-agent.vercel.app";
 
 export interface MobileDashboardData {
   network: string;

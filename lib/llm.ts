@@ -7,7 +7,7 @@
 // 1. Groq Configuration (Recommended: Free tier, ultra-fast 500+ tok/s)
 // Get free key from: https://console.groq.com
 const getGroqKey = () => process.env.GROQ_API_KEY;
-const getGroqModel = () => process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const getGroqModel = () => process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 
 // 2. OpenRouter Configuration (Free models available)
 // Get free key from: https://openrouter.ai/keys
