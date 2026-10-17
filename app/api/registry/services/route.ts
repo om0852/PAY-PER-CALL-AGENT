@@ -58,6 +58,9 @@ export async function GET(req: Request) {
           category: svc.category,
           endpoint: svc.endpoint,
           price: svc.price,
+          rentalPrice: svc.rentalPrice || 1000000,
+          rentalQuota: svc.rentalQuota || 10000,
+          rentalDurationDays: svc.rentalDurationDays || 30,
           asset: svc.asset,
           network: svc.network,
           payTo: svc.payTo,
@@ -85,7 +88,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ services: enrichedServices });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("GET /api/registry/services error:", err);
+    return NextResponse.json({ error: msg, stack }, { status: 500 });
   }
 }
 
@@ -94,7 +99,19 @@ export async function POST(req: Request) {
     await connectToDatabase();
     const body = await req.json();
 
-    const { name, category, endpoint, price, asset, network, payTo, schema } = body;
+    const {
+      name,
+      category,
+      endpoint,
+      price,
+      rentalPrice,
+      rentalQuota,
+      asset,
+      network,
+      payTo,
+      schema,
+    } = body;
+
     if (!name || !category || !endpoint || price === undefined || !payTo) {
       return NextResponse.json(
         { error: "Missing required service registration fields" },
@@ -109,6 +126,9 @@ export async function POST(req: Request) {
       category,
       endpoint: trimmedEndpoint,
       price: Number(price),
+      rentalPrice: rentalPrice !== undefined ? Number(rentalPrice) : 1000000,
+      rentalQuota: rentalQuota !== undefined ? Number(rentalQuota) : 10000,
+      rentalDurationDays: 30,
       asset: asset || "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
       network: network || "eip155:84532",
       payTo: payTo.toLowerCase(),

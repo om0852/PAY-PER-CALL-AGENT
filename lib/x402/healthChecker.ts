@@ -167,18 +167,31 @@ export async function runHealthCheckForServices(forceNewAlert: boolean = false):
         }).sort({ createdAt: -1 });
 
         if (recentRejection) {
-          status = "SCHEMA_MISMATCH";
-          message = `Output rejected by client schema validator on task ${recentRejection.taskId}.`;
+          const recentSettled = await Ledger.findOne({
+            serviceName: { $regex: new RegExp(`^${svc.name.trim()}$`, "i") },
+            status: "SETTLED",
+            createdAt: { $gt: recentRejection.createdAt },
+          });
+
+          if (!recentSettled) {
+            status = "SCHEMA_MISMATCH";
+            message = `Output rejected by client schema validator on task ${recentRejection.taskId}.`;
+          }
         }
       } catch {
         // non-blocking
       }
     }
 
-    // Special check for intentional fault-injection service (scraper-junk or Budget Scraper)
-    if (svc.endpoint.includes("scraper-junk") || svc.name.toLowerCase().includes("budget scraper")) {
+    // Special check for intentional fault-injection service (scraper-junk, scraper-unstable, or Budget Scraper)
+    if (
+      svc.endpoint.includes("scraper-junk") ||
+      svc.endpoint.includes("scraper-unstable") ||
+      svc.name.toLowerCase().includes("budget scraper") ||
+      svc.name.toLowerCase().includes("unstable")
+    ) {
       status = "SCHEMA_MISMATCH";
-      message = "Fault injection detected: Returns corrupted schema for test isolation.";
+      message = "Fault injection detected: Returns corrupted schema / Cloudflare bot block.";
     }
 
     // 3. Update Service Health in MongoDB

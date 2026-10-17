@@ -43,6 +43,10 @@ const TOOLS = [
           type: "string",
           description: "High-level goal or prompt for the autonomous agent to solve.",
         },
+        xml: {
+          type: "string",
+          description: "Optional custom XML content to convert or process.",
+        },
         budgetUsdc: {
           type: "number",
           description: "Max budget limit in USDC (e.g. 0.25). Defaults to 0.50 USDC.",
@@ -65,8 +69,25 @@ const TOOLS = [
           type: "object",
           description: "The JSON payload to send to the service.",
         },
+        buyerAddress: {
+          type: "string",
+          description: "Buyer wallet address (default: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266).",
+        },
       },
       required: ["serviceEndpointOrName", "payload"],
+    },
+  },
+  {
+    name: "list_rentals",
+    description: "Query active prepaid rental leases, remaining quota, total calls, and lease expiration dates for the buyer.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        buyerAddress: {
+          type: "string",
+          description: "Buyer wallet address (default: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266).",
+        },
+      },
     },
   },
   {
@@ -146,13 +167,20 @@ async function handleToolCall(name, args) {
     }
 
     case "run_buyer_agent": {
+      const buyerAddress = args.buyerAddress || args.buyer || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
       const res = await fetch(`${API_BASE_URL}/api/buyer/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-buyer-address": buyerAddress,
+          "x-buyer": buyerAddress,
+        },
         body: JSON.stringify({
           task: args.task,
+          xml: args.xml,
           budget: Math.round((args.budgetUsdc || 0.5) * 1_000_000),
           maxConcurrency: 3,
+          buyerAddress,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}: Agent execution failed`);
@@ -164,9 +192,19 @@ async function handleToolCall(name, args) {
       if (!endpoint.startsWith("http")) {
         endpoint = `${API_BASE_URL}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
       }
+      const buyerAddress = args.buyerAddress || args.buyer || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+      const headers = {
+        "Content-Type": "application/json",
+        "x-buyer-address": buyerAddress,
+        "x-buyer": buyerAddress,
+      };
+      if (args.paymentSignature) {
+        headers["payment-signature"] = args.paymentSignature;
+        headers["x-payment"] = args.paymentSignature;
+      }
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(args.payload),
       });
 
@@ -182,8 +220,22 @@ async function handleToolCall(name, args) {
         statusCode: res.status,
         headers: {
           paymentRequired: res.headers.get("payment-required"),
+          paymentMode: res.headers.get("x-payment-mode"),
+          rentalQuotaUsed: res.headers.get("x-rental-quota-used"),
+          rentalRemaining: res.headers.get("x-rental-remaining"),
         },
         response: parsed,
+      };
+    }
+
+    case "list_rentals": {
+      const buyer = args.buyerAddress || args.buyer || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+      const res = await fetch(`${API_BASE_URL}/api/rentals?buyer=${buyer}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}: Failed to fetch rentals`);
+      const json = await res.json();
+      return {
+        count: (json.rentals || []).length,
+        rentals: json.rentals || [],
       };
     }
 

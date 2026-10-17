@@ -165,10 +165,17 @@ export default function DeveloperHub({ triggerToast }: DeveloperHubProps) {
         method = "GET";
       }
 
+      const buyerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "x-buyer-address": buyerAddress,
+        "x-buyer": buyerAddress,
+      };
+
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
-        ...(body ? { body: JSON.stringify(body) } : {}),
+        headers,
+        ...(body ? { body: JSON.stringify({ ...body, buyerAddress: body.buyerAddress || buyerAddress }) } : {}),
       });
 
       const latencyMs = Date.now() - startTime;

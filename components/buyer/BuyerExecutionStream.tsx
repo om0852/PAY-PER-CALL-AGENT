@@ -223,7 +223,7 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
   };
 
   // Handle Preset Clicks
-  const handleApplyPreset = (preset: "master" | "3step" | "fallback" | "exhaustion") => {
+  const handleApplyPreset = (preset: "master" | "3step" | "fallback" | "exhaustion" | "advisor") => {
     setActivePreset(preset);
     if (preset === "master") {
       setTaskPrompt(
@@ -241,11 +241,11 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
       triggerToast("Loaded: 3-Step Pipeline ($0.09 USDC)");
     } else if (preset === "fallback") {
       setTaskPrompt(
-        "Scrape books inventory using Budget Scraper, detect schema mismatch, and fallback to Books Scraper Pro."
+        "Scrape books inventory using Budget Scraper ($0.01 USDC), detect schema mismatch, and fallback to verified Cheerio FastScraper ($0.035 USDC)."
       );
       setBudgetUsdc(0.25);
       setConcurrency(2);
-      triggerToast("Loaded: Fallback Test ($0.05 USDC)");
+      triggerToast("Loaded: Fallback Test ($0.035 USDC)");
     } else if (preset === "exhaustion") {
       setTaskPrompt(
         "Attempt scraping books with tight cap to test HTTP 402 budget exhaustion refusal."
@@ -253,6 +253,26 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
       setBudgetUsdc(0.01);
       setConcurrency(1);
       triggerToast("Loaded: Tight Cap Refusal ($0.01)");
+    } else if (preset === "advisor") {
+      setTaskPrompt(
+        "Simulate high-volume enterprise ingestion (10,000 invocations) on Books Scraper Pro. Autonomous AI Cost Optimization Advisor analyzes pricing and triggers 1-click rental recommendation."
+      );
+      setBudgetUsdc(1.0);
+      setConcurrency(3);
+      triggerToast("Simulating 10,000 calls... Triggering AI Cost Advisor Alert!");
+      fetch("/api/ai/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerAddress,
+          serviceName: "Books Scraper Pro",
+          category: "scraping",
+          callCount: 10000,
+          perCallPriceUsdc: 0.05,
+          rentalPriceUsdc: 1.0,
+          rentalQuota: 10000,
+        }),
+      }).catch(() => {});
     }
   };
 
@@ -268,52 +288,54 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
 
   // Determine tool items to display in Turn 2
   const purchasesList = (runSummary?.purchases as PurchaseSummary[]) || [];
-  const displayTools =
-    purchasesList.length > 0
-      ? purchasesList.map((p) => {
-          let icon = "travel_explore";
-          let category = "Autonomous Tool";
-          const lower = p.service.toLowerCase();
-          if (lower.includes("scraper")) {
-            icon = "travel_explore";
-            category = "Catalogue Parser";
-          } else if (lower.includes("fx") || lower.includes("frankfurter")) {
-            icon = "currency_exchange";
-            category = "ECB Live Feeds";
-          } else if (lower.includes("sentiment") || lower.includes("classifier")) {
-            icon = "sentiment_satisfied";
-            category = "NLP Engine";
-          } else if (lower.includes("oracle") || lower.includes("gas") || lower.includes("crypto")) {
-            icon = "monitoring";
-            category = "Chainlink Aggregator";
-          } else if (lower.includes("compliance") || lower.includes("aml")) {
-            icon = "policy";
-            category = "OFAC Screening";
-          } else if (lower.includes("dossier") || lower.includes("report")) {
-            icon = "description";
-            category = "Synthesis Node";
-          } else if (lower.includes("xml")) {
-            icon = "data_object";
-            category = "Data Transform";
-          }
+  const isExecutedRun = !!runSummary;
+  const isBudgetRefused = isExecutedRun && purchasesList.length === 0;
 
-          const isRejected = p.status === "FAILED_OUTPUT_REJECTED";
+  const displayTools = isExecutedRun
+    ? purchasesList.map((p) => {
+        let icon = "travel_explore";
+        let category = "Autonomous Tool";
+        const lower = p.service.toLowerCase();
+        if (lower.includes("scraper")) {
+          icon = "travel_explore";
+          category = "Catalogue Parser";
+        } else if (lower.includes("fx") || lower.includes("frankfurter")) {
+          icon = "currency_exchange";
+          category = "ECB Live Feeds";
+        } else if (lower.includes("sentiment") || lower.includes("classifier")) {
+          icon = "sentiment_satisfied";
+          category = "NLP Engine";
+        } else if (lower.includes("oracle") || lower.includes("gas") || lower.includes("crypto")) {
+          icon = "monitoring";
+          category = "Chainlink Aggregator";
+        } else if (lower.includes("compliance") || lower.includes("aml")) {
+          icon = "policy";
+          category = "OFAC Screening";
+        } else if (lower.includes("dossier") || lower.includes("report")) {
+          icon = "description";
+          category = "Synthesis Node";
+        } else if (lower.includes("xml")) {
+          icon = "data_object";
+          category = "Data Transform";
+        }
 
-          return {
-            name: p.service,
-            category,
-            icon,
-            desc: isRejected
-              ? "Output rejected by client schema validator. $0.00 charged. Buyer refunded."
-              : `Successfully completed execution with strict specification adherence. Verified on Base Sepolia.`,
-            sla: isRejected ? "Schema Mismatch (Refunded)" : "100% Schema Pass",
-            latency: p.latency || "780 ms",
-            price: p.price,
-            txHash: p.txHash ? `${p.txHash.slice(0, 6)}...${p.txHash.slice(-4)}` : "0x98b1...e411",
-            raw: p,
-          };
-        })
-      : DEFAULT_TOOLS;
+        const isRejected = p.status === "FAILED_OUTPUT_REJECTED";
+
+        return {
+          name: p.service,
+          category,
+          icon,
+          desc: isRejected
+            ? "Output rejected by client schema validator. $0.00 charged. Buyer refunded."
+            : `Successfully completed execution with strict specification adherence. Verified on Base Sepolia.`,
+          sla: isRejected ? "Schema Mismatch (Refunded)" : "100% Schema Pass",
+          latency: p.latency || "780 ms",
+          price: p.price,
+          txHash: p.txHash ? `${p.txHash.slice(0, 6)}...${p.txHash.slice(-4)}` : "0x98b1...e411",
+          raw: p,
+        };
+      })
+    : DEFAULT_TOOLS;
 
   const totalSpentFormatted = runSummary
     ? `$${((Number(runSummary.totalSpent) || 0) / 1e6).toFixed(4)} USDC`
@@ -322,51 +344,34 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
   return (
     <div className="flex flex-col w-full relative min-h-screen bg-[#fbf9f6] text-[#1b1c1a]">
       {/* ================= 1. Top Sub-Header & Live Telemetry Context Strip ================= */}
-      <div className="w-full bg-[#ffffff]/85 backdrop-blur-md px-6 py-3 shadow-xs sticky top-16 z-30 flex flex-wrap items-center justify-between gap-4 border-b border-[#d4af37]/15">
-        {/* Left Breadcrumb & Agent Status */}
-        <div className="flex items-center flex-wrap gap-4">
-          <div className="flex items-center gap-1.5 text-xs text-[#5b5e66]">
-            <span>Workspace</span>
-            <span className="text-[#d0c5af]">/</span>
-            <span className="text-[#1b1c1a] font-semibold">Autonomous Scout Assistant</span>
-          </div>
-
-          <div className="h-4 w-px bg-[#d0c5af] hidden sm:block"></div>
-
-          {/* Live pulsing badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f5f3f0] shadow-[0_2px_8px_rgba(212,175,55,0.06)] border border-[#d4af37]/20">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
-            </span>
-            <span className="text-[11px] font-bold text-[#1b1c1a] tracking-wider">
-              Scout v1.4.2 Autonomous
-            </span>
-            <span className="text-[#d0c5af] text-[10px]">•</span>
-            <span className="text-[11px] font-semibold text-[#735c00]">Base Sepolia</span>
-          </div>
-
-          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#d4af37]/15 text-[#554300] text-xs font-semibold">
-            <span className="material-symbols-outlined text-[15px] text-[#735c00]">verified_user</span>
-            <span>EIP-3009 Gasless Relay</span>
-          </div>
+      <div className="w-full bg-[#ffffff]/90 backdrop-blur-md px-6 py-1.5 sticky top-14 z-30 flex items-center justify-between border-b border-[#d4af37]/15 h-10 shadow-xs">
+        {/* Left: Clean Active Agent Status */}
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+          </span>
+          <span className="text-xs font-semibold text-[#1b1c1a]">Autonomous Scout</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/60 leading-none">
+            Active
+          </span>
         </div>
 
-        {/* Right Financial & SLA Pills */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#f5f3f0] text-[#1b1c1a] border border-[#d0c5af]/40">
-            <span className="text-[10px] uppercase text-[#5b5e66] font-bold">Balance:</span>
-            <span className="text-xs font-bold text-[#1b1c1a] font-mono">${buyerBalanceUsdc} USDC</span>
+        {/* Right: Consolidated Compact Telemetry */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f5f3f0] border border-[#d0c5af]/40 text-xs">
+            <span className="text-[10px] text-[#5b5e66] font-bold uppercase">Balance:</span>
+            <span className="font-mono font-bold text-[#1b1c1a]">${buyerBalanceUsdc} USDC</span>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#f5f3f0] text-[#1b1c1a] border border-[#d0c5af]/40">
-            <span className="text-[10px] uppercase text-[#5b5e66] font-bold">Budget Cap:</span>
-            <span className="text-xs font-bold text-[#735c00] font-mono">${budgetUsdc.toFixed(2)} USDC</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#f5f3f0] border border-[#d0c5af]/40 text-xs">
+            <span className="text-[10px] text-[#5b5e66] font-bold uppercase">Budget Cap:</span>
+            <span className="font-mono font-bold text-[#735c00]">${budgetUsdc.toFixed(2)} USDC</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-[#047857] shadow-xs border border-emerald-200">
-            <span className="material-symbols-outlined text-[15px]">local_gas_station</span>
-            <span className="text-[11px] font-bold tracking-wide">Sponsored ($0.00)</span>
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-[#047857] border border-emerald-200 text-[11px] font-semibold">
+            <span className="material-symbols-outlined text-[13px]">bolt</span>
+            <span>Gasless (Sponsored)</span>
           </div>
         </div>
       </div>
@@ -519,50 +524,115 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
               <span className="text-xs text-[#735c00] font-semibold">100% Contract Verification</span>
             </div>
 
-            {/* Micro-Transaction Cards */}
-            {displayTools.map((tool, idx) => (
-              <div
-                key={idx}
-                className="group bg-[#ffffff] p-4 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#d4af37]/20"
-              >
-                <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#f5f3f0] flex items-center justify-center text-[#735c00] flex-shrink-0 group-hover:bg-[#d4af37]/20 transition-colors">
-                    <span className="material-symbols-outlined text-[22px]">{tool.icon}</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-bold text-[#1b1c1a]">{tool.name}</h4>
-                      <span className="px-2 py-0.5 rounded-full bg-[#f5f3f0] text-[#4d4635] text-[10px] font-semibold">
-                        {tool.category}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#4d4635] line-clamp-1 mt-0.5">{tool.desc}</p>
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-[11px] text-[#047857] font-bold">
-                        <span className="material-symbols-outlined text-[14px]">done_all</span>{" "}
-                        {tool.sla}
-                      </span>
-                      <span className="text-[11px] text-[#5b5e66] font-mono">{tool.latency}</span>
-                      <span className="text-[11px] text-[#5b5e66]">•</span>
-                      <a
-                        className="text-[11px] text-[#735c00] hover:underline flex items-center gap-0.5"
-                        href="https://sepolia.basescan.org"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        BaseScan Proof{" "}
-                        <span className="material-symbols-outlined text-[13px]">north_east</span>
-                      </a>
-                    </div>
-                  </div>
+            {/* Fallback Recovery Alert Banner */}
+            {runSummary?.fallbackUsed && (
+              <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-4 flex items-start gap-3.5 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300/60">
+                  <span className="material-symbols-outlined text-[22px]">shield</span>
                 </div>
-
-                <div className="flex md:flex-col items-center md:items-end justify-between self-stretch md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-[#efeeeb]">
-                  <span className="text-sm font-mono font-bold text-[#1b1c1a]">{tool.price}</span>
-                  <span className="text-[11px] text-[#5b5e66] font-mono">Tx: {tool.txHash}</span>
+                <div className="flex-1 text-xs">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-[#1b1c1a] text-sm">2-Tier Autonomous Fallback Recovered</h4>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-bold text-[10px] tracking-wide">
+                      VERIFIED RESILIENCE
+                    </span>
+                  </div>
+                  <p className="text-[#4d4635] mt-1 leading-relaxed">
+                    Primary candidate <strong>{runSummary.fallbackDetails?.rejectedService || "Budget Scraper (Cheap)"}</strong> violated strict JSON Schema. Escrow cancelled authorization (<strong>$0.00 debited</strong>) and autonomously routed execution to verified alternative <strong>{runSummary.fallbackDetails?.promotedService || "Cheerio FastScraper Standard"}</strong> ({runSummary.fallbackDetails?.promotedPrice || "0.0350 USDC"}).
+                  </p>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Micro-Transaction Cards or Budget Refusal State */}
+            {isBudgetRefused ? (
+              <div className="bg-[#ffffff] p-5 rounded-xl border border-amber-300 bg-amber-50/40 shadow-xs flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-800 flex-shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">shield</span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-[#1b1c1a]">Budget Cap Refusal Enforced (0 Tools Debited)</h4>
+                  <p className="text-xs text-[#5b5e66] mt-0.5 leading-relaxed">
+                    Candidate service price ($0.0500 USDC) exceeded your tight budget cap (${budgetUsdc.toFixed(2)} USDC). The autonomous scout aborted payment authorization before signing. Client funds remain 100% preserved in escrow.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              displayTools.map((tool: any, idx: number) => {
+                const isRejected = tool.raw?.status === "FAILED_OUTPUT_REJECTED";
+                const isPromotedFallback = runSummary?.fallbackUsed && !isRejected && idx > 0;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`group bg-[#ffffff] p-4 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 border ${
+                      isRejected
+                        ? "border-amber-300 bg-amber-50/20"
+                        : isPromotedFallback
+                        ? "border-emerald-400 bg-emerald-50/20"
+                        : "border-[#d4af37]/20"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                        isRejected ? "bg-amber-100 text-amber-800" : isPromotedFallback ? "bg-emerald-100 text-emerald-800" : "bg-[#f5f3f0] text-[#735c00] group-hover:bg-[#d4af37]/20"
+                      }`}>
+                        <span className="material-symbols-outlined text-[22px]">{isRejected ? "warning" : tool.icon}</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm font-bold text-[#1b1c1a]">{tool.name}</h4>
+                          <span className="px-2 py-0.5 rounded-full bg-[#f5f3f0] text-[#4d4635] text-[10px] font-semibold">
+                            {tool.category}
+                          </span>
+                          {isRejected && (
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-200">
+                              REJECTED • $0.00 CHARGED
+                            </span>
+                          )}
+                          {isPromotedFallback && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                              PROMOTED FALLBACK
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[#4d4635] line-clamp-1 mt-0.5">{tool.desc}</p>
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                            isRejected ? "text-amber-800" : "text-[#047857]"
+                          }`}>
+                            <span className="material-symbols-outlined text-[14px]">{isRejected ? "error_outline" : "done_all"}</span>{" "}
+                            {tool.sla}
+                          </span>
+                          <span className="text-[11px] text-[#5b5e66] font-mono">{tool.latency}</span>
+                          {!isRejected && (
+                            <>
+                              <span className="text-[11px] text-[#5b5e66]">•</span>
+                              <a
+                                className="text-[11px] text-[#735c00] hover:underline flex items-center gap-0.5"
+                                href="https://sepolia.basescan.org"
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                BaseScan Proof{" "}
+                                <span className="material-symbols-outlined text-[13px]">north_east</span>
+                              </a>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex md:flex-col items-center md:items-end justify-between self-stretch md:self-auto pt-2 md:pt-0 border-t md:border-t-0 border-[#efeeeb]">
+                      <span className={`text-sm font-mono font-bold ${isRejected ? "text-amber-800 line-through" : "text-[#1b1c1a]"}`}>{tool.price}</span>
+                      <span className="text-[11px] text-[#5b5e66] font-mono">
+                        {isRejected ? "Refunded Escrow" : `Tx: ${tool.txHash}`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Final Mission Summary Card */}
@@ -570,14 +640,18 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#d4af37]/20">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-[#d4af37]/20 text-[#735c00] flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[20px]">task_alt</span>
+                  <span className="material-symbols-outlined text-[20px]">{isBudgetRefused ? "verified_user" : "task_alt"}</span>
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-[#1b1c1a]">
-                    Mission Successfully Completed &amp; Settled
+                    {isBudgetRefused
+                      ? "Budget Cap Enforced — Zero Funds Debited"
+                      : "Mission Successfully Completed & Settled"}
                   </h3>
                   <p className="text-xs text-[#4d4635]">
-                    All cryptographic attestations submitted to Base Sepolia Escrow contract.
+                    {isBudgetRefused
+                      ? "Transaction aborted prior to cryptographic signing. Client escrow remains 100% intact."
+                      : "All cryptographic attestations submitted to Base Sepolia Escrow contract."}
                   </p>
                 </div>
               </div>
@@ -724,7 +798,7 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
               }`}
               type="button"
             >
-              <span>🛡️ Fallback Test ($0.05 USDC)</span>
+              <span>🛡️ Fallback Test ($0.035 USDC)</span>
             </button>
 
             <button
@@ -737,6 +811,18 @@ Settlement Status: CRYPTOGRAPHICALLY CONFIRMED (100% SLA)
               type="button"
             >
               <span>⚡ Tight Cap Refusal</span>
+            </button>
+
+            <button
+              onClick={() => handleApplyPreset("advisor")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md shadow-[0_2px_10px_rgba(212,175,55,0.12)] text-[#1b1c1a] text-xs font-bold whitespace-nowrap transition-all border ${
+                activePreset === "advisor"
+                  ? "bg-[#d4af37] text-[#554300] border-[#d4af37]"
+                  : "bg-[#ffffff]/95 hover:bg-[#d4af37]/15 border-[#d0c5af]/40"
+              }`}
+              type="button"
+            >
+              <span>💡 AI Cost Advisor (10k Calls)</span>
             </button>
           </div>
 

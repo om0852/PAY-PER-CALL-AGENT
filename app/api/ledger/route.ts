@@ -14,7 +14,8 @@ export async function GET(req: Request) {
     const query: Record<string, unknown> = {};
     if (taskId) query.taskId = taskId;
     if (serviceName) {
-      query.serviceName = { $regex: new RegExp(`^${serviceName}$`, "i") };
+      const escaped = serviceName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      query.serviceName = { $regex: new RegExp(`^${escaped}$`, "i") };
     }
     if (seller) {
       query.seller = seller.toLowerCase();

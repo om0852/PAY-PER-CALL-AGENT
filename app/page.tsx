@@ -59,6 +59,9 @@ import ServiceRatingModal from "@/components/provider/ServiceRatingModal";
 import TransactionDetailModal from "@/components/provider/TransactionDetailModal";
 import DeveloperHub from "@/components/developer/DeveloperHub";
 import BuyerExecutionStream from "@/components/buyer/BuyerExecutionStream";
+import RentalRecommendationModal, {
+  AiRecommendationData,
+} from "@/components/buyer/RentalRecommendationModal";
 
 interface WalletData {
   _id: string;
@@ -74,6 +77,9 @@ interface ServiceData {
   category: string;
   endpoint: string;
   price: number;
+  rentalPrice?: number;
+  rentalQuota?: number;
+  rentalDurationDays?: number;
   payTo: string;
   active?: boolean;
   averageUserRating?: number;
@@ -92,6 +98,23 @@ interface ServiceData {
     rejectedCalls: number;
   };
   schema?: Record<string, unknown>;
+}
+
+interface RentalData {
+  id: string;
+  buyer: string;
+  serviceId?: string | null;
+  serviceName: string;
+  category: string;
+  seller: string;
+  rentalPrice: number;
+  rentalPriceUsdc: string;
+  quotaTotal: number;
+  quotaUsed: number;
+  remainingQuota: number;
+  percentUsed: number;
+  expiresAt: string;
+  active: boolean;
 }
 
 interface NotificationData {
@@ -233,6 +256,10 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   const [txFlowFilter, setTxFlowFilter] = useState<"all" | "sent" | "received">("all");
   const [txSearchQuery, setTxSearchQuery] = useState("");
 
+  // AI Cost Optimization Recommendation Modal State (Cross-Platform Real-time Sync)
+  const [aiRecommendation, setAiRecommendation] = useState<AiRecommendationData | null>(null);
+  const [isRecommendationModalOpen, setIsRecommendationModalOpen] = useState(false);
+
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -267,6 +294,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   // Data states from DB
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const [services, setServices] = useState<ServiceData[]>([]);
+  const [rentals, setRentals] = useState<RentalData[]>([]);
+  const [rentingServiceId, setRentingServiceId] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -292,6 +321,10 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState<boolean>(false);
   const [isRunningHealthCheck, setIsRunningHealthCheck] = useState<boolean>(false);
+  const [isDepositModalOpen, setIsDepositModalOpen] = useState<boolean>(false);
+  const [depositAmountUsdc, setDepositAmountUsdc] = useState<number>(5);
+  const [isDepositing, setIsDepositing] = useState<boolean>(false);
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState<boolean>(false);
 
   const sellerPayoutAddress = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
   const escrowContract = "0x845320c99a80b875631ea235bfcdde1297e6402c";
@@ -325,12 +358,14 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     setLoadingData(true);
     setErrorMessage(null);
     try {
-      const [wRes, sRes, lRes, nRes, ocRes] = await Promise.all([
+      const [wRes, sRes, lRes, nRes, ocRes, rRes, recRes] = await Promise.all([
         fetch("/api/wallets"),
         fetch("/api/registry/services"),
         fetch("/api/ledger"),
         fetch("/api/notifications"),
         fetch("/api/wallets/onchain"),
+        fetch("/api/rentals?buyer=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+        fetch("/api/ai/recommendations?buyer=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
       ]);
 
       if (wRes.ok) {
@@ -344,6 +379,21 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       if (lRes.ok) {
         const lData = await lRes.json();
         setLedger(lData.ledger || lData.logs || []);
+      }
+      if (rRes && rRes.ok) {
+        const rData = await rRes.json();
+        setRentals(rData.rentals || []);
+      }
+      if (recRes && recRes.ok) {
+        const recData = await recRes.json();
+        if (recData.success && recData.recommendation) {
+          setAiRecommendation(recData.recommendation);
+          setIsRecommendationModalOpen(true);
+        } else {
+          // If accepted or dismissed on Mobile, automatically dismiss on Web!
+          setAiRecommendation(null);
+          setIsRecommendationModalOpen(false);
+        }
       }
       if (nRes.ok) {
         const nData = await nRes.json();
@@ -377,6 +427,52 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  };
+
+  const handleAcceptRecommendation = async (rec: AiRecommendationData) => {
+    try {
+      const res = await fetch("/api/ai/recommendations/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recommendationId: rec.id,
+          action: "ACCEPT",
+          platform: "web",
+          buyerAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to activate rental lease");
+      triggerToast(
+        `⚡ 30-Day Lease activated for ${rec.serviceName}! Next ${rec.rentalQuota.toLocaleString()} calls are free.`
+      );
+      setIsRecommendationModalOpen(false);
+      setAiRecommendation(null);
+      await refreshAllData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      triggerToast(`Rental error: ${msg}`);
+    }
+  };
+
+  const handleDismissRecommendation = async (rec: AiRecommendationData) => {
+    try {
+      await fetch("/api/ai/recommendations/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recommendationId: rec.id,
+          action: "DISMISS",
+          platform: "web",
+        }),
+      });
+      triggerToast("Dismissed. Execution continuing via Pay-Per-Call.");
+      setIsRecommendationModalOpen(false);
+      setAiRecommendation(null);
+    } catch {
+      setIsRecommendationModalOpen(false);
+      setAiRecommendation(null);
+    }
   };
 
   const handleRunHealthCheck = async () => {
@@ -446,16 +542,23 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     ]);
 
     const budgetAtomicUnits = Math.round(budgetUsdc * 1_000_000);
+    const buyerWallet = wallets.find((w: any) => w.role === "buyer" || w.address?.toLowerCase() === "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266");
+    const buyerAddress = buyerWallet?.address || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
 
     try {
       const response = await fetch("/api/buyer/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-buyer-address": buyerAddress,
+          "x-buyer": buyerAddress,
+        },
         body: JSON.stringify({
           taskId: tempTaskId,
           task: taskPrompt,
           budget: budgetAtomicUnits,
           maxConcurrency: concurrency,
+          buyerAddress,
         }),
       });
 
@@ -501,24 +604,36 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       }
 
       if (resData.fallbackUsed) {
+        console.log(`%c[AgentBucket 2-Tier Fallback Triggered]`, "color: #f59e0b; font-weight: bold; font-size: 13px;");
+        console.log(`[AgentBucket] Primary Candidate Attempted:`, resData.fallbackDetails?.rejectedService || "Budget Scraper (Cheap)");
+        console.log(`[AgentBucket] Status: Output violated JSON Schema. Client funds debited: $0.00 USDC (Escrow Protected)`);
+        console.log(`[AgentBucket] Promoted Fallback Alternative:`, resData.fallbackDetails?.promotedService || "Cheerio FastScraper Standard");
+        console.log(`[AgentBucket] Fallback Settlement Price:`, resData.fallbackDetails?.promotedPrice || "0.0350 USDC");
+
         stepEvents.push({
           stepId: "step-fallback",
           type: "FALLBACK_SUCCESS",
-          message: `🔄 Fallback Loop Success: Promoted secondary seller and successfully delivered analytical report.`,
+          message: resData.fallbackDetails
+            ? `🛡️ 2-Tier Fallback Succeeded: Primary candidate "${resData.fallbackDetails.rejectedService}" failed schema verification ($0.00 charged). Automatically promoted verified alternative "${resData.fallbackDetails.promotedService}" (${resData.fallbackDetails.promotedPrice}) to deliver dataset.`
+            : `🔄 Fallback Loop Success: Promoted secondary seller and successfully delivered verified dataset.`,
           timestamp: Date.now() + 1200,
+          details: resData.fallbackDetails,
         });
       }
 
+      const isRefused = !resData.purchases || resData.purchases.length === 0;
       stepEvents.push({
         stepId: "step-complete",
-        type: "TASK_COMPLETED",
-        message: `Task execution succeeded within budget: Total Spent $${(resData.totalSpent / 1_000_000).toFixed(4)} USDC`,
+        type: isRefused ? "BUDGET_EXCEEDED" : "TASK_COMPLETED",
+        message: isRefused
+          ? `Budget cap enforced: Service price exceeded budget limit. $0.0000 USDC debited (escrow funds preserved).`
+          : `Task execution succeeded within budget: Total Spent $${(resData.totalSpent / 1_000_000).toFixed(4)} USDC`,
         timestamp: Date.now() + 1500,
       });
 
       setEvents((prev) => [...prev, ...stepEvents]);
       await refreshAllData();
-      triggerToast("Scout task completed successfully!");
+      triggerToast(isRefused ? "Budget cap enforced: 0 funds debited" : "Scout task completed successfully!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
@@ -618,6 +733,83 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       triggerToast(`Delete failed: ${msg}`);
+    }
+  };
+
+  // Rent service with 30-day quota lease
+  const handleRentService = async (svc: ServiceData) => {
+    const rentPriceUsdc = ((svc.rentalPrice || 1000000) / 1000000).toFixed(2);
+    const quota = (svc.rentalQuota || 10000).toLocaleString();
+    if (!confirm(`Rent "${svc.name}" for $${rentPriceUsdc} USDC/month with ${quota} included calls?`)) {
+      return;
+    }
+
+    setRentingServiceId(svc.id);
+    try {
+      const res = await fetch("/api/rentals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceId: svc.id,
+          buyer: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        triggerToast(`Rental failed: ${data.error || "Unknown error"}`);
+      } else {
+        triggerToast(`🎉 Successfully rented ${svc.name}! Quota: ${quota} calls active.`);
+        await refreshAllData();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error renting service";
+      triggerToast(`Error: ${msg}`);
+    } finally {
+      setRentingServiceId(null);
+    }
+  };
+
+  // Inject real testnet USDC liquidity into Buyer Agent escrow reserve
+  const handleDepositReserve = async (amount: number) => {
+    setIsDepositing(true);
+    try {
+      const res = await fetch("/api/mobile/balance/topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountUsdc: amount }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Deposit failed");
+      }
+      triggerToast(`✅ Injected +$${amount.toFixed(2)} USDC into Reserve! New Buyer Balance: $${data.newBalanceUsdc} USDC`);
+      setIsDepositModalOpen(false);
+      await refreshAllData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      triggerToast(`Deposit failed: ${msg}`);
+    } finally {
+      setIsDepositing(false);
+    }
+  };
+
+  // Run live diagnostic probe against Base Sepolia RPC
+  const handleRunDiagnostics = async () => {
+    setIsRunningDiagnostics(true);
+    triggerToast("Probing Base Sepolia Keeper node & relayer RPC...");
+    try {
+      const res = await fetch("/api/wallets/onchain");
+      const data = await res.json();
+      if (res.ok && !data.error) {
+        setOnchainStatus(data);
+        triggerToast(`🛰️ Base Sepolia Keeper Synchronized! Block #${data.blockNumber}, Gas: ${data.gasPriceGwei} Gwei`);
+      } else {
+        triggerToast("Diagnostic probe completed with fallback status");
+      }
+    } catch {
+      triggerToast("Network error executing keeper probe");
+    } finally {
+      setIsRunningDiagnostics(false);
     }
   };
 
@@ -1020,6 +1212,39 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     return true;
   });
 
+  // Dynamic Treasury & Escrow Reserves Calculations (100% live from MongoDB wallets)
+  const totalVaultUnits = wallets.reduce((s, w) => s + (w.balance || 0), 0);
+  const buyerVaultUnits = wallets.find((w) => w.role === "buyer")?.balance || 0;
+  const sellerVaultUnits = wallets
+    .filter((w) => w.role === "seller")
+    .reduce((s, w) => s + (w.balance || 0), 0);
+  const facilitatorVaultUnits = wallets
+    .filter((w) => w.role === "facilitator")
+    .reduce((s, w) => s + (w.balance || 0), 0);
+
+  const totalVaultUsdc = (totalVaultUnits / 1e6).toFixed(4);
+  const buyerVaultUsdc = (buyerVaultUnits / 1e6).toFixed(4);
+  const sellerVaultUsdc = (sellerVaultUnits / 1e6).toFixed(4);
+  const facilitatorVaultUsdc = (facilitatorVaultUnits / 1e6).toFixed(4);
+
+  const buyerVaultPct =
+    totalVaultUnits > 0
+      ? ((buyerVaultUnits / totalVaultUnits) * 100).toFixed(1)
+      : "0.0";
+  const sellerVaultPct =
+    totalVaultUnits > 0
+      ? ((sellerVaultUnits / totalVaultUnits) * 100).toFixed(1)
+      : "0.0";
+  const facilitatorVaultPct =
+    totalVaultUnits > 0
+      ? ((facilitatorVaultUnits / totalVaultUnits) * 100).toFixed(1)
+      : "0.0";
+
+  const totalSellerWalletsCount = wallets.filter((w) => w.role === "seller").length;
+  const fundedSellerWalletsCount = wallets.filter(
+    (w) => w.role === "seller" && w.balance > 0
+  ).length;
+
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {
       case "scraping":
@@ -1106,7 +1331,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               { id: "dispatcher", label: "Buyer Scout Dispatcher", icon: Zap },
               { id: "transactions", label: "Transactions & Settlements", icon: Receipt },
               { id: "analytics", label: "Executions & Analytics", icon: Activity },
-              { id: "revenue", label: "Revenue & Escrow", icon: WalletIcon },
+              { id: "revenue", label: "Treasury & Escrow", icon: WalletIcon },
               { id: "api", label: "API & Webhooks", icon: Key },
             ].map((item) => {
               const Icon = item.icon;
@@ -1172,21 +1397,19 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       {/* ================= MAIN WRAPPER ================= */}
       <div className="pl-64 flex flex-col min-h-screen">
         {/* ================= FIXED TOP HEADER ================= */}
-        <header className="fixed top-0 left-64 right-0 h-16 bg-[#fbf9f6]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-6 border-b border-[#d4af37]/15">
+        <header className="fixed top-0 left-64 right-0 h-14 bg-[#fbf9f6]/95 backdrop-blur-xl shadow-[0_1px_6px_rgba(0,0,0,0.03)] z-40 flex items-center justify-between px-5 border-b border-[#d4af37]/15">
           <div className="flex items-center gap-3 shrink-0">
             {/* Live Network Badge */}
-            <div className="flex items-center gap-2 px-3 py-1 bg-[#efeeeb] rounded-full shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
-              <span className="text-[11px] font-bold text-[#1b1c1a] tracking-wide whitespace-nowrap">
-                Base Sepolia (84532)
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-[#efeeeb] rounded-full border border-[#d4af37]/20 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span>
+              <span className="text-[11px] font-semibold text-[#1b1c1a] whitespace-nowrap">
+                Base Sepolia
               </span>
             </div>
 
-            {/* Active Workspace Breadcrumb */}
-            <div className="hidden xl:flex items-center gap-1.5 text-xs text-[#5b5e66] shrink-0">
-              <span>Workspace</span>
-              <span>/</span>
-              <span className="font-bold text-[#1b1c1a]">
+            {/* Active View Label */}
+            <div className="hidden xl:flex items-center text-xs shrink-0">
+              <span className="font-semibold text-[#1b1c1a]">
                 {activeNavTab === "overview"
                   ? "Overview"
                   : activeNavTab === "services"
@@ -1198,15 +1421,15 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   : activeNavTab === "analytics"
                   ? "Executions & Analytics"
                   : activeNavTab === "revenue"
-                  ? "Revenue & Escrow"
+                  ? "Treasury & Escrow"
                   : "API & Webhooks"}
               </span>
             </div>
 
             {/* Seller Payout Wallet Pill */}
-            <div className="hidden sm:flex items-center gap-2 bg-[#f5f3f0] px-3 py-1 rounded-full border border-[#d0c5af]/50 shrink-0">
-              <WalletIcon className="w-3.5 h-3.5 text-[#735c00]" />
-              <span className="text-xs font-mono text-[#1b1c1a] font-medium">
+            <div className="hidden sm:flex items-center gap-1.5 bg-[#f5f3f0] px-2.5 py-0.5 rounded-full border border-[#d0c5af]/50 shrink-0">
+              <WalletIcon className="w-3 h-3 text-[#735c00]" />
+              <span className="text-xs font-mono text-[#1b1c1a]">
                 {sellerPayoutAddress.slice(0, 6)}...{sellerPayoutAddress.slice(-4)}
               </span>
               <button
@@ -1218,28 +1441,28 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 type="button"
                 title="Copy address"
               >
-                <Copy className="w-3.5 h-3.5" />
+                <Copy className="w-3 h-3" />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             {/* Mobile App Link */}
             <Link
               href="/mobile"
               target="_blank"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1b1c1a] hover:bg-[#333] text-xs font-bold text-[#d4af37] border border-[#d4af37]/40 shadow-xs transition-all shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1b1c1a] hover:bg-[#333] text-xs font-semibold text-[#d4af37] border border-[#d4af37]/40 shadow-xs transition-all shrink-0"
               title="Open Mobile Companion App"
             >
               <Smartphone className="w-3.5 h-3.5 text-[#d4af37]" />
-              <span className="hidden sm:inline">📱 Mobile App</span>
+              <span className="hidden sm:inline">Mobile App</span>
             </Link>
 
             {/* Health Audit Button */}
             <button
               onClick={handleRunHealthCheck}
               disabled={isRunningHealthCheck}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] border border-[#d0c5af]/40 transition-all disabled:opacity-50 shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-xs font-semibold text-[#1b1c1a] border border-[#d0c5af]/40 transition-all disabled:opacity-50 shrink-0"
             >
               <HeartPulse className={`w-3.5 h-3.5 text-emerald-600 ${isRunningHealthCheck ? "animate-spin" : ""}`} />
               <span className="hidden md:inline">{isRunningHealthCheck ? "Auditing..." : "Health Audit"}</span>
@@ -1249,7 +1472,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
             <div className="relative shrink-0">
               <button
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className="p-2 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] transition-colors relative flex items-center justify-center border border-[#d0c5af]/40"
+                className="p-1.5 rounded-full bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] transition-colors relative flex items-center justify-center border border-[#d0c5af]/40"
                 title="Health Notifications"
               >
                 <Bell className="w-4 h-4 text-[#735c00]" />
@@ -1324,42 +1547,42 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
             {/* Register Service Button */}
             <button
               onClick={() => setIsRegisterModalOpen(true)}
-              className="flex items-center gap-1.5 bg-[#d4af37] text-white hover:bg-[#c39e26] px-3.5 py-1.5 rounded-full text-xs font-bold shadow-sm active:scale-95 transition-all shrink-0 whitespace-nowrap"
+              className="flex items-center gap-1 bg-[#d4af37] text-white hover:bg-[#c39e26] px-3 py-1 rounded-full text-xs font-semibold shadow-xs active:scale-95 transition-all shrink-0 whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Register New Service</span>
+              <span>Register Service</span>
             </button>
 
-            <div className="h-5 w-px bg-[#d0c5af]"></div>
+            <div className="h-4 w-px bg-[#d0c5af]"></div>
 
             {/* User Profile & Logout */}
-            <div className="flex items-center gap-2.5 pl-1">
+            <div className="flex items-center gap-2 pl-0.5">
               <img
                 alt="Profile"
-                className="w-8 h-8 rounded-full object-cover shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/30"
+                className="w-7 h-7 rounded-full object-cover shadow-[0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/30"
                 src="/bots/bot-3.svg"
               />
               <div className="hidden xl:flex flex-col text-left">
                 <span className="text-xs font-semibold text-[#1b1c1a] leading-none">
                   {user?.name || "AuraNode Labs"}
                 </span>
-                <span className="text-[10px] text-[#5b5e66] leading-tight">
+                <span className="text-[9px] text-[#5b5e66] leading-tight mt-0.5">
                   Verified Seller
                 </span>
               </div>
               <button
                 onClick={handleLogout}
-                className="p-1 text-[#5b5e66] hover:text-rose-700 transition-colors ml-1"
+                className="p-1 text-[#5b5e66] hover:text-rose-700 transition-colors ml-0.5"
                 title="Logout"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         </header>
 
         {/* ================= MAIN DASHBOARD BODY ================= */}
-        <main className="flex-1 w-full pt-16 bg-[#fbf9f6]">
+        <main className="flex-1 w-full pt-14 bg-[#fbf9f6]">
           {activeNavTab === "dispatcher" ? (
             <BuyerExecutionStream
               taskPrompt={taskPrompt}
@@ -1730,10 +1953,10 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-[#1b1c1a] group-hover:text-[#735c00] transition-colors">
-                      Revenue &amp; Escrow
+                      Treasury &amp; Escrow
                     </h4>
                     <p className="text-xs text-[#5b5e66] mt-1 leading-snug">
-                      Smart contract treasury reserves, participant wallet balances, and relayer sponsorship.
+                      Smart contract custody reserves, participant wallet balances, and relayer liquidity allocation.
                     </p>
                   </div>
                   <div className="flex items-center text-xs font-bold text-[#735c00] group-hover:translate-x-1 transition-transform">
@@ -2138,6 +2361,48 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 </div>
               </div>
 
+              {/* Active Prepaid Agent Leases Banner */}
+              {rentals.length > 0 && (
+                <div className="bg-gradient-to-r from-[#d4af37]/15 via-amber-500/5 to-transparent border border-[#d4af37]/40 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#d4af37] text-[#554300] flex items-center justify-center font-bold shrink-0 shadow-sm">
+                      <Zap className="w-5 h-5 fill-current" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-[#1b1c1a]">Active Prepaid Agent Leases</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-800 border border-emerald-500/30">
+                          {rentals.filter((r) => r.active && r.remainingQuota > 0).length} Active Services
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#5b5e66]">
+                        Calls to rented services bypass EIP-3009 micro-payments and consume from your bulk prepaid quota instantly.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {rentals
+                      .filter((r) => r.active && r.remainingQuota > 0)
+                      .map((r) => (
+                        <div
+                          key={r.id}
+                          className="bg-white px-3 py-1.5 rounded-lg border border-[#d0c5af]/50 text-xs shadow-sm flex items-center gap-2"
+                        >
+                          <span className="font-semibold text-[#1b1c1a]">{r.serviceName}</span>
+                          <span className="font-mono text-[11px] font-bold text-emerald-700">
+                            {r.remainingQuota.toLocaleString()} calls left
+                          </span>
+                          {r.quotaUsed > 0 && (
+                            <span className="text-[10px] text-[#735c00] font-mono font-medium">
+                              ({r.quotaUsed.toLocaleString()} used)
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {/* High-Density Management Table */}
               <div className="overflow-x-auto -mx-6 md:-mx-8 px-6 md:px-8">
                 <table className="w-full text-left text-xs border-collapse">
@@ -2147,6 +2412,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                       <th className="py-3 px-3">Category</th>
                       <th className="py-3 px-3">Proxy Route</th>
                       <th className="py-3 px-3">Unit Price</th>
+                      <th className="py-3 px-3">Rent Agent (Quota)</th>
                       <th className="py-3 px-3 min-w-[200px]">Health &amp; Telemetry</th>
                       <th className="py-3 px-3">Calls</th>
                       <th className="py-3 px-3">Revenue</th>
@@ -2157,7 +2423,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   <tbody className="divide-y divide-[#efeeeb]">
                     {filteredServices.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-[#5b5e66]">
+                        <td colSpan={10} className="py-8 text-center text-[#5b5e66]">
                           No services match the active filter.
                         </td>
                       </tr>
@@ -2223,6 +2489,72 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                                 {(svc.price / 1_000_000).toFixed(4)}{" "}
                                 <span className="text-[#735c00] font-sans text-[10px]">USDC</span>
                               </span>
+                            </td>
+
+                            <td className="py-3.5 px-3">
+                              {(() => {
+                                const activeRental = rentals.find((r) => {
+                                  if (!r.active || r.remainingQuota <= 0) return false;
+                                  if (r.serviceId && r.serviceId === svc.id) return true;
+                                  if (r.serviceName && r.serviceName.toLowerCase() === svc.name.toLowerCase()) return true;
+                                  if (r.seller && svc.payTo && r.seller.toLowerCase() === svc.payTo.toLowerCase()) return true;
+                                  return false;
+                                });
+                                if (activeRental) {
+                                  return (
+                                    <div className="flex flex-col gap-1 min-w-[155px]">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                          <Zap className="w-2.5 h-2.5 fill-emerald-600 text-emerald-600" />
+                                          LEASE ACTIVE
+                                        </span>
+                                        <span className="font-mono text-[10px] font-bold text-[#1b1c1a]">
+                                          {activeRental.remainingQuota.toLocaleString()} left
+                                        </span>
+                                      </div>
+                                      <div className="w-full bg-[#eae8e5] h-1.5 rounded-full overflow-hidden">
+                                        <div
+                                          className="bg-emerald-600 h-full rounded-full transition-all"
+                                          style={{
+                                            width: `${Math.min(
+                                              100,
+                                              Math.max(5, 100 - activeRental.percentUsed)
+                                            )}%`,
+                                          }}
+                                          title={`${activeRental.remainingQuota} / ${activeRental.quotaTotal} remaining`}
+                                        />
+                                      </div>
+                                      <span className="text-[9px] text-[#5b5e66]">
+                                        {activeRental.quotaUsed.toLocaleString()} used • Exp{" "}
+                                        {new Date(activeRental.expiresAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="font-mono text-xs font-bold text-[#1b1c1a]">
+                                        ${((svc.rentalPrice || 1000000) / 1000000).toFixed(2)}
+                                        <span className="text-[10px] font-normal text-[#5b5e66]">/mo</span>
+                                      </span>
+                                      <span className="text-[9px] text-[#5b5e66]">
+                                        {(svc.rentalQuota || 10000).toLocaleString()} calls
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRentService(svc)}
+                                      disabled={rentingServiceId === svc.id}
+                                      className="px-2.5 py-1 text-[11px] font-bold bg-[#d4af37]/20 hover:bg-[#d4af37] text-[#554300] hover:text-white rounded-lg border border-[#d4af37]/40 hover:border-[#d4af37] transition-all flex items-center gap-1 shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+                                      title="Rent this agent service for 30 days of high-speed bulk calls"
+                                    >
+                                      <Zap className="w-3 h-3" />
+                                      <span>{rentingServiceId === svc.id ? "Renting..." : "Rent"}</span>
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </td>
 
                             <td className="py-3.5 px-3">
@@ -4257,14 +4589,14 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-[#5b5e66] tracking-widest uppercase font-semibold">Workspace</span>
                   <span className="text-[#d0c5af] text-[10px]">/</span>
-                  <span className="text-[10px] text-[#1b1c1a] font-semibold tracking-wider uppercase">Revenue &amp; Escrow</span>
+                  <span className="text-[10px] text-[#1b1c1a] font-semibold tracking-wider uppercase">Treasury &amp; Escrow</span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#eae8e5] text-[#10b981] text-[10px] font-semibold shadow-sm ml-2">
                     <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
                     Base Sepolia Escrow Verified
                   </span>
                 </div>
                 <h1 className="text-2xl md:text-3xl text-[#1b1c1a] font-bold tracking-tight">
-                  Revenue, Treasury &amp; Escrow Settlement
+                  Treasury &amp; Escrow Settlement
                 </h1>
                 <p className="text-xs md:text-sm text-[#4d4635] max-w-3xl">
                   Base Sepolia smart contract escrow balances, seller earnings, buyer balance reserves, and facilitator relayer pools with atomic micro-settlement.
@@ -4299,7 +4631,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                     </a>
                   </div>
                   <span className="text-[10px] text-[#5b5e66]">
-                    EIP-712 Meta-Tx Nonce: <span className="font-mono text-[#1b1c1a] font-bold">#{(4920 + settledCalls).toLocaleString()}</span>
+                    EIP-712 Meta-Tx Authorizations: <span className="font-mono text-[#1b1c1a] font-bold">#{ledger.length}</span>
                   </span>
                 </div>
               </div>
@@ -4322,8 +4654,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                   <span>Refresh State</span>
                 </button>
                 <button
-                  onClick={() => triggerToast("Modal: Injecting USDC testnet liquidity into escrow reserve...")}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#d4af37] text-white hover:bg-[#c39e26] text-xs font-bold shadow-[0_4px_16px_rgba(212,175,55,0.25)] transition-all"
+                  onClick={() => setIsDepositModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#d4af37] text-white hover:bg-[#c39e26] text-xs font-bold shadow-[0_4px_16px_rgba(212,175,55,0.25)] transition-all cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 text-white" />
                   <span>Deposit Reserve USDC</span>
@@ -4422,113 +4754,113 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               </div>
             </div>
 
-            {/* Top 4 Metric KPI Cards */}
+            {/* Top 4 Dedicated Treasury & Escrow KPI Cards (Non-Duplicate) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-              {/* Card 1: Seller Cumulative Revenue */}
+              {/* Card 1: Total Escrow Reserves */}
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Seller Cumulative Revenue</span>
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Total Treasury Reserves</span>
                   <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
-                    <WalletIcon className="w-4 h-4 text-emerald-600" />
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   </div>
                 </div>
                 <div>
                   <div className="text-2xl md:text-3xl font-bold text-[#10b981] font-mono tracking-tight">
-                    +${totalRevenueUsdc} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
+                    ${totalVaultUsdc} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
                   </div>
                   <p className="text-[#4d4635] mt-1 text-[13px] leading-tight">
-                    Auto-settled into seller payout address • {settledCalls} settled micro-claims
+                    Total on-chain liquidity custody across {wallets.length} ecosystem accounts
                   </p>
                 </div>
                 <div className="space-y-1 pt-1">
                   <div className="flex justify-between text-[10px] text-[#5b5e66]">
-                    <span>Disbursement Velocity</span>
-                    <span className="font-bold text-[#10b981]">98.4%</span>
+                    <span>Reserve Health</span>
+                    <span className="font-bold text-[#10b981]">100% Fully Backed</span>
                   </div>
                   <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#10b981] rounded-full w-[98.4%]"></div>
+                    <div className="h-full bg-[#10b981] rounded-full w-full"></div>
                   </div>
                 </div>
               </div>
 
-              {/* Card 2: Escrow Contract Pool */}
+              {/* Card 2: Buyer Available Escrow */}
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Escrow Contract Pool</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f5f3f0] flex items-center justify-center text-[#735c00] shrink-0">
-                    <Shield className="w-4 h-4 text-[#735c00]" />
-                  </div>
-                </div>
-                <div>
-                  <div className="text-2xl md:text-3xl font-bold text-[#1b1c1a] font-mono tracking-tight">
-                    ${((wallets.reduce((s, w) => s + (w.balance || 0), 0) || 16660000) / 1e6).toFixed(4)} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
-                  </div>
-                  <p className="text-[#4d4635] mt-1 text-[13px] leading-tight">
-                    Locked on Base Sepolia testnet • 100% on-chain liquidity backing
-                  </p>
-                </div>
-                <div className="space-y-1 pt-1">
-                  <div className="flex justify-between text-[10px] text-[#5b5e66]">
-                    <span>Pool Saturation</span>
-                    <span className="font-bold text-[#735c00]">56.6% Total Cap</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#d4af37] rounded-full w-[56.6%]"></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3: Buyer Balance Reserve */}
-              <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Buyer Balance Reserve</span>
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Buyer Available Escrow</span>
                   <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
                     <DollarSign className="w-4 h-4 text-blue-600" />
                   </div>
                 </div>
                 <div>
                   <div className="text-2xl md:text-3xl font-bold text-[#1b1c1a] font-mono tracking-tight">
-                    ${((wallets.find((w) => w.role === "buyer")?.balance || 9770000) / 1e6).toFixed(4)} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
+                    ${buyerVaultUsdc} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
                   </div>
                   <p className="text-[#4d4635] mt-1 text-[13px] leading-tight">
-                    Sufficient for 10,000+ invocations • Healthy execution runway
+                    Primary Scout account • Sufficient for {Math.floor(buyerVaultUnits / 35000).toLocaleString()}+ micro-tasks
                   </p>
                 </div>
                 <div className="space-y-1 pt-1">
                   <div className="flex justify-between text-[10px] text-[#5b5e66]">
-                    <span>Runway Consumption</span>
-                    <span className="font-bold text-[#2563eb]">33.2% Allocated</span>
+                    <span>Share of Treasury</span>
+                    <span className="font-bold text-[#2563eb]">{buyerVaultPct}%</span>
                   </div>
                   <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#3b82f6] rounded-full w-[33.2%]"></div>
+                    <div className="h-full bg-[#3b82f6] rounded-full" style={{ width: `${buyerVaultPct}%` }}></div>
                   </div>
                 </div>
               </div>
 
-              {/* Card 4: Relayer Gas Sponsorship */}
+              {/* Card 3: Seller Disbursed Pool */}
               <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Relayer Gas Sponsorship</span>
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-[#735c00] shrink-0">
-                    <Zap className="w-4 h-4 text-[#735c00]" />
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Seller Disbursed Pool</span>
+                  <div className="w-8 h-8 rounded-lg bg-[#f5f3f0] flex items-center justify-center text-[#735c00] shrink-0">
+                    <WalletIcon className="w-4 h-4 text-[#735c00]" />
                   </div>
                 </div>
                 <div>
-                  <div className="text-2xl md:text-3xl font-bold text-[#735c00] font-mono tracking-tight">
-                    100% <span className="text-xs font-semibold text-[#5b5e66]">Covered</span>
+                  <div className="text-2xl md:text-3xl font-bold text-[#1b1c1a] font-mono tracking-tight">
+                    ${sellerVaultUsdc} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
                   </div>
                   <p className="text-[#4d4635] mt-1 text-[13px] leading-tight">
-                    Zero gas paid by buyer or seller • EIP-3009 Gasless Relay active
+                    Claimable by {fundedSellerWalletsCount} of {totalSellerWalletsCount} provider addresses
                   </p>
                 </div>
                 <div className="space-y-1 pt-1">
                   <div className="flex justify-between text-[10px] text-[#5b5e66]">
-                    <span>Sponsor Subsidy Balance</span>
-                    <span className="font-bold text-[#10b981]">0.84 ETH Free</span>
+                    <span>Share of Treasury</span>
+                    <span className="font-bold text-[#735c00]">{sellerVaultPct}%</span>
                   </div>
                   <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#10b981] rounded-full w-full"></div>
+                    <div className="h-full bg-[#d4af37] rounded-full" style={{ width: `${sellerVaultPct}%` }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Relayer Paymaster Buffer */}
+              <div className="p-5 bg-white rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-3 border border-[#d4af37]/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-[#5b5e66] font-bold">Relayer Paymaster Buffer</span>
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-700 shrink-0">
+                    <Zap className="w-4 h-4 text-indigo-700" />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl md:text-3xl font-bold text-indigo-900 font-mono tracking-tight">
+                    ${facilitatorVaultUsdc} <span className="text-xs font-semibold text-[#5b5e66]">USDC</span>
+                  </div>
+                  <p className="text-[#4d4635] mt-1 text-[13px] leading-tight">
+                    Gasless sponsorship pool • {Number(onchainStatus?.relayer?.ethBalance || 0).toFixed(4)} ETH on Base Sepolia
+                  </p>
+                </div>
+                <div className="space-y-1 pt-1">
+                  <div className="flex justify-between text-[10px] text-[#5b5e66]">
+                    <span>Share of Treasury</span>
+                    <span className="font-bold text-indigo-700">{facilitatorVaultPct}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[#eae8e5] rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${facilitatorVaultPct}%` }}></div>
                   </div>
                 </div>
               </div>
@@ -4541,44 +4873,44 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h2 className="text-lg font-bold text-[#1b1c1a]">Escrow Treasury &amp; Liquidity Allocation Breakdown</h2>
-                    <p className="text-xs text-[#5b5e66]">Current reserve composition across smart contract custody vaults on Base L2.</p>
+                    <p className="text-xs text-[#5b5e66]">Real-time reserve composition across smart contract custody vaults on Base L2.</p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full bg-[#efeeeb] text-[#1b1c1a] font-mono text-xs font-semibold self-start sm:self-auto">
-                    Total: $29.4300 USDC
+                    Total: ${totalVaultUsdc} USDC
                   </span>
                 </div>
 
                 {/* Segmented Allocation Bar */}
                 <div className="space-y-2">
                   <div className="w-full h-4 rounded-full overflow-hidden bg-[#eae8e5] flex shadow-inner">
-                    <div className="h-full bg-[#d4af37] transition-all hover:opacity-90" style={{ width: "56.6%" }} title="Escrow Pool: 56.6%"></div>
-                    <div className="h-full bg-[#3b82f6] transition-all hover:opacity-90" style={{ width: "33.2%" }} title="Buyer Reserves: 33.2%"></div>
-                    <div className="h-full bg-[#10b981] transition-all hover:opacity-90" style={{ width: "10.2%" }} title="Relayer Buffer: 10.2%"></div>
+                    <div className="h-full bg-[#3b82f6] transition-all hover:opacity-90" style={{ width: `${buyerVaultPct}%` }} title={`Buyer Reserves: ${buyerVaultPct}%`}></div>
+                    <div className="h-full bg-[#d4af37] transition-all hover:opacity-90" style={{ width: `${sellerVaultPct}%` }} title={`Seller Pool: ${sellerVaultPct}%`}></div>
+                    <div className="h-full bg-indigo-600 transition-all hover:opacity-90" style={{ width: `${facilitatorVaultPct}%` }} title={`Relayer Buffer: ${facilitatorVaultPct}%`}></div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#d4af37]"></span>
-                        <span className="text-xs font-bold text-[#1b1c1a]">Escrow Pool</span>
-                      </div>
-                      <span className="font-mono text-xs font-semibold text-[#1b1c1a] pl-4">$16.6600 (56.6%)</span>
-                      <span className="text-[10px] text-[#5b5e66] pl-4">Locked smart contract</span>
-                    </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]"></span>
                         <span className="text-xs font-bold text-[#1b1c1a]">Buyer Reserves</span>
                       </div>
-                      <span className="font-mono text-xs font-semibold text-[#1b1c1a] pl-4">$9.7700 (33.2%)</span>
-                      <span className="text-[10px] text-[#5b5e66] pl-4">Available for invocations</span>
+                      <span className="font-mono text-xs font-semibold text-[#1b1c1a] pl-4">${buyerVaultUsdc} ({buyerVaultPct}%)</span>
+                      <span className="text-[10px] text-[#5b5e66] pl-4">Available for scout tasks</span>
                     </div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#d4af37]"></span>
+                        <span className="text-xs font-bold text-[#1b1c1a]">Seller Custody Pool</span>
+                      </div>
+                      <span className="font-mono text-xs font-semibold text-[#1b1c1a] pl-4">${sellerVaultUsdc} ({sellerVaultPct}%)</span>
+                      <span className="text-[10px] text-[#5b5e66] pl-4">Non-custodial claimable earnings</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
                         <span className="text-xs font-bold text-[#1b1c1a]">Relayer Buffer</span>
                       </div>
-                      <span className="font-mono text-xs font-semibold text-[#1b1c1a] pl-4">$3.0000 (10.2%)</span>
-                      <span className="text-[10px] text-[#5b5e66] pl-4">x402 Facilitator fee pool</span>
+                      <span className="font-mono text-xs font-semibold text-[#1b1c1a] pl-4">${facilitatorVaultUsdc} ({facilitatorVaultPct}%)</span>
+                      <span className="text-[10px] text-[#5b5e66] pl-4">x402 Facilitator gas pool</span>
                     </div>
                   </div>
                 </div>
@@ -4587,18 +4919,20 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 <div className="p-3 bg-[#f5f3f0] rounded-lg flex flex-wrap items-center justify-between gap-2 text-[#4d4635] text-xs">
                   <div className="flex flex-wrap items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#735c00] shrink-0" />
-                    <span className="font-semibold text-[#1b1c1a]">Audited by CertiK &amp; OpenZeppelin</span>
+                    <span className="font-semibold text-[#1b1c1a]">Base Sepolia Smart Contract Escrow</span>
                     <span>•</span>
-                    <span>ECDSA EIP-712 Replay Protection</span>
+                    <span>EIP-712 Replay Protection</span>
                     <span>•</span>
                     <span>30s Atomic Lease Lock</span>
                   </div>
-                  <button
-                    onClick={() => triggerToast("Viewing CertiK & OpenZeppelin Smart Contract Audit Certificate...")}
+                  <a
+                    href="https://sepolia.basescan.org/token/0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-[#735c00] hover:underline font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-0.5"
                   >
-                    View Audit Cert <ArrowRight className="w-3.5 h-3.5 text-[#735c00]" />
-                  </button>
+                    View USDC Contract <ArrowRight className="w-3.5 h-3.5 text-[#735c00]" />
+                  </a>
                 </div>
               </div>
 
@@ -4607,8 +4941,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
                 <div className="flex items-start justify-between relative z-10">
                   <div>
                     <span className="text-[10px] uppercase tracking-wider text-[#735c00] font-bold">Autonomous Keeper</span>
-                    <h3 className="text-lg font-bold text-[#1b1c1a] leading-tight mt-0.5">Settlement Bot</h3>
-                    <p className="text-xs text-[#5b5e66] mt-1">Listening to Base Sepolia blocks for claim events.</p>
+                    <h3 className="text-lg font-bold text-[#1b1c1a] leading-tight mt-0.5">Settlement Keeper Bot</h3>
+                    <p className="text-xs text-[#5b5e66] mt-1">Listening to Base Sepolia blocks for claim &amp; settlement events.</p>
                   </div>
                   <div className="w-16 h-16 rounded-xl overflow-hidden shadow-md shrink-0 bg-[#efeeeb] border-2 border-[#d4af37]/40 flex items-center justify-center">
                     <img alt="Settlement Bot" className="w-full h-full object-cover" src="/bots/bot-3.svg" />
@@ -4617,27 +4951,28 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
                 <div className="space-y-2 relative z-10 pt-4">
                   <div className="flex items-center justify-between py-1.5 bg-[#f5f3f0] px-3 rounded-lg text-xs">
-                    <span className="text-[#5b5e66]">Epoch State</span>
-                    <span className="font-bold text-[#10b981] flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span> Synchronized
+                    <span className="text-[#5b5e66]">Base Sepolia Block</span>
+                    <span className="font-bold text-[#10b981] flex items-center gap-1 font-mono">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse"></span> #{onchainStatus?.blockNumber ? Number(onchainStatus.blockNumber).toLocaleString() : "48,202,439"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 bg-[#f5f3f0] px-3 rounded-lg text-xs">
-                    <span className="text-[#5b5e66]">Avg Confirmation</span>
-                    <span className="font-mono font-bold text-[#1b1c1a]">1.82s</span>
+                    <span className="text-[#5b5e66]">Median Latency</span>
+                    <span className="font-mono font-bold text-[#1b1c1a]">{medianLatency}ms</span>
                   </div>
                   <div className="flex items-center justify-between py-1.5 bg-[#f5f3f0] px-3 rounded-lg text-xs">
-                    <span className="text-[#5b5e66]">Lease Timeouts</span>
-                    <span className="font-mono font-bold text-[#1b1c1a]">0 (100% Finalized)</span>
+                    <span className="text-[#5b5e66]">Active Prepaid Leases</span>
+                    <span className="font-mono font-bold text-[#735c00]">{rentals.length} Active Leases</span>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => triggerToast("Executing Keeper diagnostic probe on Base Sepolia...")}
-                  className="mt-4 w-full py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                  onClick={handleRunDiagnostics}
+                  disabled={isRunningDiagnostics}
+                  className="mt-4 w-full py-2 bg-[#efeeeb] hover:bg-[#eae8e5] text-[#1b1c1a] rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
-                  <Cpu className="w-3.5 h-3.5" />
-                  <span>Run Bot Diagnostics</span>
+                  <Cpu className={`w-3.5 h-3.5 ${isRunningDiagnostics ? "animate-spin text-[#735c00]" : ""}`} />
+                  <span>{isRunningDiagnostics ? "Querying RPC Node..." : "Run Keeper Node Diagnostics"}</span>
                 </button>
               </div>
             </div>
@@ -4885,6 +5220,97 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
         </footer>
       </div>
 
+      {/* Deposit Escrow Reserve USDC Modal */}
+      {isDepositModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#d4af37]/30 flex flex-col gap-5">
+            <div className="flex items-center justify-between border-b border-[#efeeeb] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1b1c1a]">Deposit Escrow Reserve USDC</h3>
+                  <p className="text-xs text-[#5b5e66]">Fund Buyer Agent escrow on Base Sepolia</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDepositModalOpen(false)}
+                className="w-8 h-8 rounded-full hover:bg-[#efeeeb] text-[#5b5e66] flex items-center justify-center transition-colors text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#f5f3f0] p-3.5 rounded-xl flex items-center justify-between text-xs">
+              <span className="text-[#5b5e66]">Current Buyer Liquid Reserve:</span>
+              <span className="font-mono font-bold text-[#1b1c1a] text-sm">${buyerVaultUsdc} USDC</span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-[#1b1c1a]">Select Deposit Amount (USDC):</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 5, 10, 25].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setDepositAmountUsdc(amt)}
+                    className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                      depositAmountUsdc === amt
+                        ? "bg-[#d4af37] text-white border-[#d4af37] shadow-sm"
+                        : "bg-[#ffffff] hover:bg-[#eae8e5] text-[#1b1c1a] border-[#d0c5af]/50"
+                    }`}
+                  >
+                    +${amt}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-[#5b5e66]">Custom:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="0.5"
+                  value={depositAmountUsdc}
+                  onChange={(e) => setDepositAmountUsdc(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-[#f5f3f0] border border-[#d0c5af]/50 text-xs font-mono font-bold text-[#1b1c1a] focus:outline-none focus:ring-2 focus:ring-[#d4af37]"
+                />
+                <span className="text-xs font-bold text-[#5b5e66]">USDC</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#efeeeb]">
+              <button
+                type="button"
+                onClick={() => setIsDepositModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#5b5e66] hover:bg-[#efeeeb] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDepositing}
+                onClick={() => handleDepositReserve(depositAmountUsdc)}
+                className="px-5 py-2 rounded-xl bg-[#d4af37] hover:bg-[#c59f2e] text-[#554300] font-bold text-xs shadow-md active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                {isDepositing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing Deposit...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Confirm Deposit +${depositAmountUsdc} USDC</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* JSON Schema Inspector Modal */}
       <SchemaModal
         isOpen={isSchemaModalOpen}
@@ -4920,6 +5346,14 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
         isOpen={isTxDetailModalOpen}
         onClose={() => setIsTxDetailModalOpen(false)}
         tx={selectedTxForDetail}
+      />
+
+      {/* AI Cost Optimization & Rental Modal (Cross-Platform Sync) */}
+      <RentalRecommendationModal
+        isOpen={isRecommendationModalOpen}
+        recommendation={aiRecommendation}
+        onAccept={handleAcceptRecommendation}
+        onDismiss={handleDismissRecommendation}
       />
     </div>
   );

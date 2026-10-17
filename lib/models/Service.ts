@@ -22,6 +22,9 @@ export interface IService {
     | string;
   endpoint: string;
   price: number; // Integer atomic units (e.g. 50000 = 0.05 USDC)
+  rentalPrice?: number; // Integer atomic units for monthly rental (e.g. 1000000 = 1.00 USDC)
+  rentalQuota?: number; // Quota calls included in monthly rental (default: 10000)
+  rentalDurationDays?: number; // Default: 30 days
   asset: string;
   network: string;
   payTo: string;
@@ -66,6 +69,21 @@ const ServiceSchema = new Schema<IService>(
       type: Number,
       required: true,
       min: 0,
+    },
+    rentalPrice: {
+      type: Number,
+      default: 1000000, // Default: 1.00 USDC
+      min: 0,
+    },
+    rentalQuota: {
+      type: Number,
+      default: 10000, // Default: 10,000 calls
+      min: 1,
+    },
+    rentalDurationDays: {
+      type: Number,
+      default: 30,
+      min: 1,
     },
     asset: {
       type: String,

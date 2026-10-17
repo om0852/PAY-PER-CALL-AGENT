@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Ajv from "ajv";
 import { PaymentChallenge, PaymentSignaturePayload, PaymentResponsePayload } from "./types";
 import { verifyPayment, settlePayment } from "./facilitator";
+import { connectToDatabase } from "../mongodb";
+import Rental from "../models/Rental";
 
 const ajv = new Ajv({ allErrors: true });
 
@@ -38,7 +40,96 @@ export function withPayment(
     const asset =
       process.env.USDC_ADDRESS || "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 
-    // 1. If no payment signature header, issue 402 challenge
+    // 0. Check for Active Prepaid Rental Quota Lease
+    const buyerHeader =
+      req.headers.get("x-buyer-address") ||
+      req.headers.get("x-buyer") ||
+      req.headers.get("x-buyer-account");
+
+    if (buyerHeader) {
+      try {
+        await connectToDatabase();
+        const buyerAddr = buyerHeader.trim().toLowerCase();
+        const sellerAddr = config.payTo ? config.payTo.trim().toLowerCase() : null;
+
+        const rentalQuery: Record<string, unknown> = {
+          buyer: { $regex: new RegExp(`^${buyerAddr}$`, "i") },
+          category: config.category,
+          active: true,
+          expiresAt: { $gt: new Date() },
+          $expr: { $lt: ["$quotaUsed", "$quotaTotal"] },
+        };
+
+        if (sellerAddr) {
+          rentalQuery.$or = [
+            { seller: { $regex: new RegExp(`^${sellerAddr}$`, "i") } },
+            { seller: { $exists: false } },
+            { seller: null },
+          ];
+        }
+
+        const rental = await Rental.findOneAndUpdate(
+          rentalQuery,
+          { $inc: { quotaUsed: 1 } },
+          { new: true, returnDocument: "after", sort: { quotaUsed: -1, createdAt: 1 } }
+        );
+
+        if (rental) {
+          // Quota available! Execute business logic without HTTP 402 challenge
+          let handlerResponse: Response;
+          try {
+            handlerResponse = await handler(req, context);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return NextResponse.json(
+              { error: `Seller execution failure: ${msg}` },
+              { status: 500 }
+            );
+          }
+
+          if (!handlerResponse.ok) {
+            return handlerResponse;
+          }
+
+          let responseData: unknown;
+          try {
+            responseData = await handlerResponse.clone().json();
+          } catch {
+            return NextResponse.json(
+              { error: "Seller output is not valid JSON" },
+              { status: 500 }
+            );
+          }
+
+          const isValid = validateOutput(responseData);
+          if (!isValid) {
+            return NextResponse.json(
+              {
+                error: "Seller output failed schema validation",
+                details: validateOutput.errors,
+              },
+              { status: 500 }
+            );
+          }
+
+          const remainingCalls = Math.max(0, rental.quotaTotal - rental.quotaUsed);
+          const finalHeaders = new Headers(handlerResponse.headers);
+          finalHeaders.set("X-PAYMENT-MODE", "RENTAL_LEASE");
+          finalHeaders.set("X-RENTAL-QUOTA-USED", String(rental.quotaUsed));
+          finalHeaders.set("X-RENTAL-QUOTA-TOTAL", String(rental.quotaTotal));
+          finalHeaders.set("X-RENTAL-REMAINING", String(remainingCalls));
+
+          return new NextResponse(JSON.stringify(responseData), {
+            status: 200,
+            headers: finalHeaders,
+          });
+        }
+      } catch (rentalErr) {
+        console.warn("[withPayment] Rental lookup warning:", rentalErr);
+      }
+    }
+
+    // 1. If no active rental AND no payment signature header, issue 402 challenge
     if (!rawSig) {
       const challenge: PaymentChallenge = {
         x402Version: 2,

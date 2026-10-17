@@ -4,6 +4,8 @@ import Authorization from "@/lib/models/Authorization";
 import Transfer from "@/lib/models/Transfer";
 import Ledger from "@/lib/models/Ledger";
 import Wallet from "@/lib/models/Wallet";
+import Rental from "@/lib/models/Rental";
+import AiRecommendation from "@/lib/models/AiRecommendation";
 
 export async function POST(req: Request) {
   try {
@@ -43,7 +45,13 @@ export async function POST(req: Request) {
       deletedLedgers = ledgerRes.deletedCount || 0;
     }
 
-    // 4. Restore test buyer wallet balance back to 10.00 USDC (10,000,000 atomic units)
+    // 4. Delete generated test rental leases and recommendations if categories provided
+    if (Array.isArray(body.categories) && body.categories.length > 0) {
+      await Rental.deleteMany({ category: { $in: body.categories } });
+      await AiRecommendation.deleteMany({ category: { $in: body.categories } });
+    }
+
+    // 5. Restore test buyer wallet balance back to 10.00 USDC (10,000,000 atomic units)
     if (buyerAddress) {
       await Wallet.findOneAndUpdate(
         { address: buyerAddress.toLowerCase() },

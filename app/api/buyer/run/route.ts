@@ -15,9 +15,17 @@ export async function POST(req: Request) {
     const parsedBudget = budget ? Number(budget) : 500000; // default 0.50 USDC (500000 atomic units)
     const parsedConcurrency = maxConcurrency ? Number(maxConcurrency) : 3;
 
+    const buyerAddress =
+      body.buyerAddress ||
+      body.buyer ||
+      req.headers.get("x-buyer-address") ||
+      req.headers.get("x-buyer") ||
+      undefined;
+
     const host = req.headers.get("host") || "localhost:3000";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const appBaseUrl = `${protocol}://${host}`;
+    const port = host.includes(":") ? host.split(":")[1] : "3000";
+    // Internal seller endpoint invocations by the server should always use loopback HTTP
+    const appBaseUrl = process.env.APP_BASE_URL || `http://127.0.0.1:${port}`;
 
     // Execute run synchronously for full result or allow client to stream via taskId
     const result = await runBuyerAgent(
@@ -26,7 +34,7 @@ export async function POST(req: Request) {
       parsedBudget,
       parsedConcurrency,
       appBaseUrl,
-      { xml, input }
+      { xml, input, buyerAddress }
     );
 
     return NextResponse.json(result, { status: 200 });

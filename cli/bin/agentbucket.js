@@ -110,13 +110,19 @@ async function main() {
       console.log(`\x1b[1mMax Budget Cap:\x1b[0m $${budgetUsdc.toFixed(2)} USDC | \x1b[1mGas:\x1b[0m 100% Sponsored\n`);
 
       const startTime = Date.now();
+      const buyerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
       const { ok, data } = await fetchJson("/api/buyer/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-buyer-address": buyerAddress,
+          "x-buyer": buyerAddress,
+        },
         body: JSON.stringify({
           task,
           budget: Math.round(budgetUsdc * 1_000_000),
           maxConcurrency: 3,
+          buyerAddress,
         }),
       });
 

@@ -20,6 +20,8 @@ export default function RegisterServiceModal({
   const [category, setCategory] = useState<string>("data");
   const [endpoint, setEndpoint] = useState("");
   const [priceUsdc, setPriceUsdc] = useState("0.0200");
+  const [rentalPriceUsdc, setRentalPriceUsdc] = useState("1.0000");
+  const [rentalQuota, setRentalQuota] = useState("10000");
   const [payTo, setPayTo] = useState(defaultPayTo);
   const [schemaText, setSchemaText] = useState(
     JSON.stringify(
@@ -64,6 +66,9 @@ export default function RegisterServiceModal({
         return;
       }
 
+      const rentalPriceAtomic = rentalPriceUsdc ? Math.round(parseFloat(rentalPriceUsdc) * 1_000_000) : 1000000;
+      const parsedRentalQuota = parseInt(rentalQuota, 10) || 10000;
+
       const res = await fetch("/api/registry/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,6 +77,8 @@ export default function RegisterServiceModal({
           category,
           endpoint: endpoint.trim(),
           price: priceAtomic,
+          rentalPrice: rentalPriceAtomic,
+          rentalQuota: parsedRentalQuota,
           asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
           network: "base-sepolia",
           payTo: payTo.trim().toLowerCase(),
@@ -176,6 +183,52 @@ export default function RegisterServiceModal({
                 className="w-full bg-[#f5f3f0] border border-[#d0c5af]/60 rounded-lg px-3 py-2 text-[#1b1c1a] font-mono focus:outline-none focus:border-[#d4af37]"
               />
             </div>
+          </div>
+
+          {/* Optional Rent a Service Tier */}
+          <div className="p-3.5 rounded-xl bg-[#efeeeb]/70 border border-[#d0c5af]/50 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[11px] text-[#1b1c1a] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#d4af37]"></span>
+                Rent a Service Option (Prepaid Bulk Quota)
+              </span>
+              <span className="text-[10px] text-[#735c00] font-bold bg-[#d4af37]/20 px-2 py-0.5 rounded-full">
+                Lease Model
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-[#1b1c1a] uppercase text-[9px] tracking-wider block mb-1">
+                  Monthly Rent Price (USDC)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={rentalPriceUsdc}
+                  onChange={(e) => setRentalPriceUsdc(e.target.value)}
+                  placeholder="1.0000"
+                  className="w-full bg-[#ffffff] border border-[#d0c5af]/60 rounded-lg px-3 py-1.5 text-[#1b1c1a] font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-[#1b1c1a] uppercase text-[9px] tracking-wider block mb-1">
+                  Included Call Quota (Calls)
+                </label>
+                <input
+                  type="number"
+                  step="500"
+                  min="100"
+                  value={rentalQuota}
+                  onChange={(e) => setRentalQuota(e.target.value)}
+                  placeholder="10000"
+                  className="w-full bg-[#ffffff] border border-[#d0c5af]/60 rounded-lg px-3 py-1.5 text-[#1b1c1a] font-mono text-xs focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-[#5b5e66] leading-tight">
+              Buyers who rent this service bypass per-call micropayments. Once this quota is exhausted, normal pay-per-call charges resume.
+            </p>
           </div>
 
           <div>

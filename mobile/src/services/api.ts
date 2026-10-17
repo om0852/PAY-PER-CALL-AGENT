@@ -3,8 +3,8 @@
  * Interacts with Next.js x402 Backend & Base Sepolia Relayer
  */
 
-// Your local Wi-Fi IP address so physical phones running Expo Go can communicate with the Next.js server
-export const API_BASE_URL = "http://10.44.236.219:3000";
+// Public production backend or local IP address for Expo Go physical device testing
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://10.44.236.219:3000";
 
 export interface MobileDashboardData {
   network: string;
@@ -79,14 +79,30 @@ export const fetchServices = async () => {
   return json.services || [];
 };
 
-export const runAutomationTask = async (task: string, budgetUsdc: number = 0.5) => {
+export const fetchRentals = async (buyerAddress: string = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266") => {
+  const res = await fetch(`${API_BASE_URL}/api/rentals?buyer=${buyerAddress}`);
+  if (!res.ok) throw new Error("Failed to fetch active rentals");
+  const json = await res.json();
+  return json.rentals || [];
+};
+
+export const runAutomationTask = async (
+  task: string,
+  budgetUsdc: number = 0.5,
+  buyerAddress: string = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+) => {
   const res = await fetch(`${API_BASE_URL}/api/buyer/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-buyer-address": buyerAddress,
+      "x-buyer": buyerAddress,
+    },
     body: JSON.stringify({
       task,
       budget: Math.round(budgetUsdc * 1_000_000),
       maxConcurrency: 3,
+      buyerAddress,
     }),
   });
   if (!res.ok) throw new Error("Failed to start agent automation");

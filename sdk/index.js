@@ -35,15 +35,39 @@ class AgentBucketClient {
 
     this.agent = {
       run: async (params) => {
-        const { task, budgetUsdc = 0.5, maxConcurrency = 3 } = params;
+        const {
+          task,
+          budgetUsdc = 0.5,
+          maxConcurrency = 3,
+          buyerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        } = params;
         return await this._fetch(`${this.baseUrl}/api/buyer/run`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-buyer-address": buyerAddress,
+            "x-buyer": buyerAddress,
+          },
           body: JSON.stringify({
             task,
             budget: Math.round(budgetUsdc * 1_000_000),
             maxConcurrency,
+            buyerAddress,
           }),
+        });
+      },
+    };
+
+    this.rentals = {
+      list: async (buyerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266") => {
+        const res = await this._fetch(`${this.baseUrl}/api/rentals?buyer=${buyerAddress}`);
+        return res.rentals || [];
+      },
+      rent: async (params) => {
+        return await this._fetch(`${this.baseUrl}/api/rentals`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
         });
       },
     };
@@ -86,15 +110,23 @@ class AgentBucketClient {
     };
   }
 
-  async callService(endpointOrName, payload) {
+  async callService(endpointOrName, payload, options = {}) {
     let endpoint = endpointOrName;
     if (!endpoint.startsWith("http")) {
       endpoint = `${this.baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
     }
 
+    const buyerAddress = options.buyerAddress || options.buyer || "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266";
+    const headers = {
+      "Content-Type": "application/json",
+      "x-buyer-address": buyerAddress,
+      "x-buyer": buyerAddress,
+      ...(options.headers || {}),
+    };
+
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -110,6 +142,9 @@ class AgentBucketClient {
       status: res.status,
       headers: {
         paymentRequired: res.headers.get("payment-required") || res.headers.get("x-payment-required"),
+        paymentMode: res.headers.get("x-payment-mode"),
+        rentalQuotaUsed: res.headers.get("x-rental-quota-used"),
+        rentalRemaining: res.headers.get("x-rental-remaining"),
       },
       data: bodyJson,
     };
