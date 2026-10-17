@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, ArrowLeft, ShieldCheck, Zap, Copy, Check, ExternalLink } from "lucide-react";
+import { TxExplorerSkeleton } from "@/components/skeletons/PageSkeletons";
 
 interface TxData {
   txHash: string;
@@ -98,10 +99,7 @@ function TxExplorerContent() {
         </div>
 
         {loading ? (
-          <div className="p-12 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3">
-            <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto" />
-            <p className="text-sm text-slate-400 font-mono">Loading transaction data from chain...</p>
-          </div>
+          <TxExplorerSkeleton />
         ) : error || !tx ? (
           <div className="p-8 rounded-2xl bg-rose-950/20 border border-rose-900/50 text-rose-300 space-y-2">
             <h2 className="text-lg font-bold">Transaction Not Found</h2>

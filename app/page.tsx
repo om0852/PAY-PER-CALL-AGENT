@@ -62,6 +62,15 @@ import BuyerExecutionStream from "@/components/buyer/BuyerExecutionStream";
 import RentalRecommendationModal, {
   AiRecommendationData,
 } from "@/components/buyer/RentalRecommendationModal";
+import {
+  OverviewSkeleton,
+  DispatcherSkeleton,
+  ServicesSkeleton,
+  TransactionsSkeleton,
+  AnalyticsSkeleton,
+  RevenueSkeleton,
+  ApiSkeleton,
+} from "@/components/skeletons/PageSkeletons";
 
 interface WalletData {
   _id: string;
@@ -298,6 +307,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   const [rentingServiceId, setRentingServiceId] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [onchainStatus, setOnchainStatus] = useState<{
     network?: string;
@@ -412,6 +422,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       setErrorMessage("Could not connect to testnet node or MongoDB");
     } finally {
       setLoadingData(false);
+      setInitialLoading(false);
     }
   }, []);
 
@@ -1600,28 +1611,37 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
         {/* ================= MAIN DASHBOARD BODY ================= */}
         <main className="flex-1 w-full pt-14 bg-[#fbf9f6]">
           {activeNavTab === "dispatcher" ? (
-            <BuyerExecutionStream
-              taskPrompt={taskPrompt}
-              setTaskPrompt={setTaskPrompt}
-              budgetUsdc={budgetUsdc}
-              setBudgetUsdc={setBudgetUsdc}
-              concurrency={concurrency}
-              setConcurrency={setConcurrency}
-              isRunning={isRunning}
-              handleLaunchAgent={handleLaunchAgent}
-              events={events}
-              runSummary={runSummary}
-              wallets={wallets}
-              currentTaskId={currentTaskId}
-              triggerToast={triggerToast}
-              userRatings={userRatings}
-              handleRateService={handleRateService}
-            />
+            initialLoading && wallets.length === 0 ? (
+              <div className="w-full px-6 md:px-8 xl:px-12 py-8 max-w-[1600px] mx-auto">
+                <DispatcherSkeleton />
+              </div>
+            ) : (
+              <BuyerExecutionStream
+                taskPrompt={taskPrompt}
+                setTaskPrompt={setTaskPrompt}
+                budgetUsdc={budgetUsdc}
+                setBudgetUsdc={setBudgetUsdc}
+                concurrency={concurrency}
+                setConcurrency={setConcurrency}
+                isRunning={isRunning}
+                handleLaunchAgent={handleLaunchAgent}
+                events={events}
+                runSummary={runSummary}
+                wallets={wallets}
+                currentTaskId={currentTaskId}
+                triggerToast={triggerToast}
+                userRatings={userRatings}
+                handleRateService={handleRateService}
+              />
+            )
           ) : (
             <div className="w-full px-6 md:px-8 xl:px-12 py-8 flex flex-col gap-8 max-w-[1600px] mx-auto">
             {/* 1. OVERVIEW DEDICATED VIEW */}
             {activeNavTab === "overview" && (
-              <>
+              initialLoading && services.length === 0 ? (
+                <OverviewSkeleton />
+              ) : (
+                <>
                 {/* 1. STUDIO BANNER & WELCOME BAR */}
                 <section
                   id="overview"
@@ -2126,11 +2146,15 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               </div>
             </section>
           </>
-        )}
+            )
+          )}
 
         {/* 2. AGENT SERVICES DEDICATED VIEW */}
         {activeNavTab === "services" && (
-          <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
+          initialLoading && services.length === 0 ? (
+            <ServicesSkeleton />
+          ) : (
+            <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
             {/* Studio Header & Action Banner */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-xl p-6 md:p-8 shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20">
               <div className="flex flex-col gap-1">
@@ -2789,11 +2813,15 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               </div>
             </div>
           </div>
-        )}
+            )
+          )}
 
         {/* 4. TRANSACTIONS & SETTLEMENTS DEDICATED VIEW */}
         {activeNavTab === "transactions" && (
-          <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
+          initialLoading && ledger.length === 0 ? (
+            <TransactionsSkeleton />
+          ) : (
+            <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
             {/* Top Header Banner & Context */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-[#d4af37]/20 bg-white p-6 md:p-8 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20">
               <div className="flex flex-col gap-1">
@@ -3544,11 +3572,15 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               </div>
             </div>
           </div>
-        )}
+            )
+          )}
 
         {/* 5. EXECUTIONS & ANALYTICS DEDICATED VIEW */}
         {activeNavTab === "analytics" && (
-          <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
+          initialLoading && ledger.length === 0 ? (
+            <AnalyticsSkeleton />
+          ) : (
+            <div className="flex flex-col gap-6 animate-fade-in max-w-[1540px] mx-auto w-full">
             {/* Top Header Banner & Context */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-[#d4af37]/20 bg-white p-6 md:p-8 rounded-xl shadow-[0_4px_20px_-2px_rgba(212,175,55,0.08),0_2px_6px_-1px_rgba(13,17,23,0.04)] border border-[#d4af37]/20">
               <div className="flex flex-col gap-1">
@@ -4594,11 +4626,15 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               </div>
             </div>
           </div>
-        )}
+            )
+          )}
 
         {/* 5. REVENUE & ESCROW DEDICATED VIEW */}
         {activeNavTab === "revenue" && (
-          <div className="flex flex-col gap-6 animate-fade-in">
+          initialLoading && wallets.length === 0 ? (
+            <RevenueSkeleton />
+          ) : (
+            <div className="flex flex-col gap-6 animate-fade-in">
             {/* Header Banner & Protocol Verification */}
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="space-y-1">
@@ -5203,11 +5239,16 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
               </div>
             </div>
           </div>
-        )}
+            )
+          )}
 
         {/* 6. API & WEBHOOKS DEDICATED VIEW */}
         {activeNavTab === "api" && (
-          <DeveloperHub triggerToast={triggerToast} />
+          initialLoading && !user ? (
+            <ApiSkeleton />
+          ) : (
+            <DeveloperHub triggerToast={triggerToast} />
+          )
         )}
             </div>
           )}
