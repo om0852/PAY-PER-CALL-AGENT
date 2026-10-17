@@ -5,7 +5,7 @@ import { runBuyerAgent } from "@/lib/x402/buyerAgent";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { task, budget, maxConcurrency, taskId: incomingTaskId } = body;
+    const { task, budget, maxConcurrency, taskId: incomingTaskId, xml, input } = body;
 
     if (!task) {
       return NextResponse.json({ error: "Task description is required" }, { status: 400 });
@@ -25,7 +25,8 @@ export async function POST(req: Request) {
       task,
       parsedBudget,
       parsedConcurrency,
-      appBaseUrl
+      appBaseUrl,
+      { xml, input }
     );
 
     return NextResponse.json(result, { status: 200 });
