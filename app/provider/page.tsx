@@ -75,7 +75,7 @@ export default function ProviderStudioPage() {
   const fetchAnalytics = useCallback(async (showIndicator = false) => {
     if (showIndicator) setIsRefreshing(true);
     try {
-      const res = await fetch(`/api/seller/analytics?seller=${sellerAddress}`);
+      const res = await fetch(`/api/seller/analytics?seller=${sellerAddress}&timeframe=${encodeURIComponent(timeframe)}`);
       if (!res.ok) throw new Error("Failed to fetch analytics");
       const data = await res.json();
 
@@ -92,7 +92,7 @@ export default function ProviderStudioPage() {
       setIsLoading(false);
       if (showIndicator) setIsRefreshing(false);
     }
-  }, [sellerAddress]);
+  }, [sellerAddress, timeframe]);
 
   // Initial load
   useEffect(() => {

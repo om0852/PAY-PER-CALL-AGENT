@@ -843,13 +843,29 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     triggerToast("Ledger CSV downloaded successfully!");
   };
 
-  // KPIs & Dynamic Analytics
-  const settledEntries = ledger.filter((e) => e.status === "SETTLED");
-  const failedEntries = ledger.filter((e) => e.status && (e.status.includes("FAILED") || e.status.includes("REJECTED")));
-  const schemaDisputes = ledger.filter((e) => e.status === "FAILED_OUTPUT_REJECTED").length;
+  // Filter ledger dynamically based on selected timeframe (24H, 7D, 30D, All Time)
+  const activeMetricsLedger = useMemo(() => {
+    if (timeframe === "All Time") return ledger;
+    const now = Date.now();
+    const windowMs =
+      timeframe === "24H"
+        ? 24 * 60 * 60 * 1000
+        : timeframe === "7D"
+        ? 7 * 24 * 60 * 60 * 1000
+        : 30 * 24 * 60 * 60 * 1000;
+    return ledger.filter((e) => {
+      const t = e.createdAt ? new Date(e.createdAt).getTime() : 0;
+      return t >= now - windowMs;
+    });
+  }, [ledger, timeframe]);
+
+  // KPIs & Dynamic Analytics (Calculated from activeMetricsLedger)
+  const settledEntries = activeMetricsLedger.filter((e) => e.status === "SETTLED");
+  const failedEntries = activeMetricsLedger.filter((e) => e.status && (e.status.includes("FAILED") || e.status.includes("REJECTED")));
+  const schemaDisputes = activeMetricsLedger.filter((e) => e.status === "FAILED_OUTPUT_REJECTED").length;
   const totalRevenueAtomic = settledEntries.reduce((sum, e) => sum + (e.paidPrice || 0), 0);
   const totalRevenueUsdc = (totalRevenueAtomic / 1_000_000).toFixed(4);
-  const totalInvocations = ledger.length;
+  const totalInvocations = activeMetricsLedger.length;
   const settledCalls = settledEntries.length;
   const deliveryRate = totalInvocations > 0 ? Math.round((settledCalls / totalInvocations) * 100) : 100;
 
@@ -866,7 +882,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
   const nodeStatusPct = services.length > 0 ? ((healthyEndpoints / services.length) * 100).toFixed(1) : "100.0";
 
   // Latencies
-  const validLatencies = ledger.map((e) => e.latencyMs).filter((l) => typeof l === "number" && l > 0);
+  const validLatencies = activeMetricsLedger.map((e) => e.latencyMs).filter((l) => typeof l === "number" && l > 0);
   validLatencies.sort((a, b) => a - b);
   const medianLatency =
     validLatencies.length > 0
@@ -972,9 +988,9 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       };
     });
 
-    if (ledger.length > 0) {
+    if (activeMetricsLedger.length > 0) {
       let mappedDirect = 0;
-      ledger.forEach((entry) => {
+      activeMetricsLedger.forEach((entry) => {
         const entryTime = entry.createdAt ? new Date(entry.createdAt).getTime() : 0;
         const latency = typeof entry.latencyMs === "number" && entry.latencyMs > 0 ? entry.latencyMs : 45;
         const price = entry.paidPrice || entry.askedPrice || 50000;
@@ -998,7 +1014,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
       // If calls were within a short demo burst, distribute them across recent windows
       if (mappedDirect === 0 || buckets.filter((b) => b.calls > 0).length <= 2) {
-        ledger.forEach((entry, idx) => {
+        activeMetricsLedger.forEach((entry, idx) => {
           const bIdx = (idx * 3 + 2) % bucketCount;
           const latency = typeof entry.latencyMs === "number" && entry.latencyMs > 0 ? entry.latencyMs : (35 + ((idx * 19) % 55));
           const price = entry.paidPrice || entry.askedPrice || 50000;
@@ -1029,7 +1045,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
     });
 
     return buckets;
-  }, [ledger]);
+  }, [activeMetricsLedger]);
 
   const maxHourlyCalls = Math.max(1, ...hourlyBuckets.map((b) => b.calls));
   const maxHourlyLatency = Math.max(100, ...hourlyBuckets.map((b) => b.avgLatency));
@@ -1037,8 +1053,8 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
   // Graph 2 Data: Cumulative Settlement Volume & Cashflow Velocity
   const cumulativeProgression = useMemo(() => {
-    const pointsCount = Math.max(7, Math.min(ledger.length, 12));
-    const sortedLedger = [...ledger].sort((a, b) => {
+    const pointsCount = Math.max(7, Math.min(activeMetricsLedger.length, 12));
+    const sortedLedger = [...activeMetricsLedger].sort((a, b) => {
       const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return ta - tb;
@@ -1082,7 +1098,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       { stepIndex: 7, label: "Tx #20", buyerDebitedUsdc: "1.0000", sellerCreditedUsdc: "1.0000", rawBuyerDebit: 1.0, rawSellerCredit: 1.0, txCount: 20, settledCount: 20, gasSponsoredUsdc: "0.0360", gasSavedGwei: "84.0", avgLatencyMs: 47 },
       { stepIndex: 8, label: "Latest Settled", buyerDebitedUsdc: totalRevenueUsdc, sellerCreditedUsdc: totalRevenueUsdc, rawBuyerDebit: parseFloat(totalRevenueUsdc) || 1.25, rawSellerCredit: parseFloat(totalRevenueUsdc) || 1.25, txCount: totalInvocations || 25, settledCount: settledCalls || 25, gasSponsoredUsdc: ((totalInvocations || 25) * 0.0018).toFixed(4), gasSavedGwei: ((totalInvocations || 25) * 4.2).toFixed(1), avgLatencyMs: medianLatency },
     ];
-  }, [ledger, totalRevenueUsdc, totalInvocations, settledCalls, medianLatency]);
+  }, [activeMetricsLedger, totalRevenueUsdc, totalInvocations, settledCalls, medianLatency]);
 
   const maxCumulativeValue = Math.max(0.1, ...cumulativeProgression.map((p) => p.rawSellerCredit));
 
@@ -1112,7 +1128,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
       });
     });
 
-    ledger.forEach((entry) => {
+    activeMetricsLedger.forEach((entry) => {
       const name = entry.serviceName || "Core Service Node";
       if (!serviceMap.has(name)) {
         serviceMap.set(name, {
@@ -1162,7 +1178,7 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
 
     list.sort((a, b) => b.calls - a.calls || parseFloat(b.volumeUsdc) - parseFloat(a.volumeUsdc));
     return list;
-  }, [services, ledger]);
+  }, [services, activeMetricsLedger]);
 
   // Filtered transactions for Dedicated Transactions & Settlements tab
   const filteredTransactions = ledger.filter((entry) => {

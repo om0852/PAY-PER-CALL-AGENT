@@ -10,12 +10,25 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const sellerAddress = searchParams.get("seller")?.toLowerCase() || "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
+    const timeframe = searchParams.get("timeframe");
 
     // 1. Fetch all services
     const services = await Service.find({}).sort({ createdAt: -1 }).lean();
 
-    // 2. Fetch all ledger entries for this seller or across the platform
-    const ledgerEntries = await Ledger.find({}).sort({ createdAt: -1 }).lean();
+    // 2. Fetch ledger entries for this seller or across the platform
+    const query: Record<string, unknown> = {};
+    if (timeframe && timeframe !== "All Time") {
+      const now = Date.now();
+      const windowMs =
+        timeframe === "24H"
+          ? 24 * 60 * 60 * 1000
+          : timeframe === "7D"
+          ? 7 * 24 * 60 * 60 * 1000
+          : 30 * 24 * 60 * 60 * 1000;
+      query.createdAt = { $gte: new Date(now - windowMs) };
+    }
+
+    const ledgerEntries = await Ledger.find(query).sort({ createdAt: -1 }).lean();
 
     // 3. Filter ledger entries related to this seller or all
     const sellerLedger = ledgerEntries.filter(
