@@ -10,11 +10,13 @@
       "backgroundColor": "#0b0f19"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "io.agentbucket.mobile"
     },
     "android": {
+      "package": "io.agentbucket.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#0b0f19"
+        "backgroundColor": "#fbf9f6"
       }
     }
   }
