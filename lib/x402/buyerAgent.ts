@@ -148,10 +148,14 @@ Supported categories are strictly: "scraping", "fx-rates", "sentiment", "crypto-
 
 Task: "${taskPrompt}"
 
-Respond with ONLY valid JSON in this exact structure:
+Rules:
+- Only include categories that are explicitly requested in the task prompt.
+- If only data or XML conversion is requested, return ONLY category "data".
+- If customer reviews or sentiment evaluation is requested, include category "sentiment".
+
+Respond with ONLY valid JSON array:
 [
-  { "stepIndex": 1, "category": "data", "description": "Convert XML customer reviews to JSON", "input": {} },
-  { "stepIndex": 2, "category": "sentiment", "description": "Classify sentiment of customer reviews", "input": {} }
+  { "stepIndex": 1, "category": "data", "description": "Convert XML payload to structured JSON", "input": {} }
 ]`;
 
     const rawText = await queryLLM(prompt);
@@ -161,9 +165,11 @@ Respond with ONLY valid JSON in this exact structure:
         const rawSteps = JSON.parse(jsonMatch[0]) as PlanStep[];
         return rawSteps.map((s, idx) => {
           if (s.category === "data" && !s.input?.xml) {
+            const xmlInPrompt = taskPrompt.match(/<([a-zA-Z0-9_\-:]+)[\s\S]*<\/\1>|<([a-zA-Z0-9_\-:]+)[\s\S]*\/>/);
             const xmlContent =
               options?.xml ||
               (options?.input?.xml as string) ||
+              (xmlInPrompt ? xmlInPrompt[0] : null) ||
               (taskPrompt.toLowerCase().includes("review") ||
               taskPrompt.toLowerCase().includes("sentiment") ||
               taskPrompt.toLowerCase().includes("customer")
@@ -240,9 +246,11 @@ Respond with ONLY valid JSON in this exact structure:
     (lower.includes("convert") && !lower.includes("currency") && !lower.includes("rate") && !lower.includes("fx")) ||
     lower.includes("json pro converter")
   ) {
+    const xmlInPromptMatch = taskPrompt.match(/<([a-zA-Z0-9_\-:]+)[\s\S]*<\/\1>|<([a-zA-Z0-9_\-:]+)[\s\S]*\/>/);
     const xmlContent =
       options?.xml ||
       (options?.input?.xml as string) ||
+      (xmlInPromptMatch ? xmlInPromptMatch[0] : null) ||
       (lower.includes("review") || lower.includes("sentiment") || lower.includes("customer")
         ? DEFAULT_CUSTOMER_REVIEWS_XML
         : DEFAULT_DATASET_XML);
@@ -896,9 +904,11 @@ export async function runBuyerAgent(
 
   for (const step of plan) {
     if (step.category === "data") {
+      const xmlInPrompt = taskPrompt.match(/<([a-zA-Z0-9_\-:]+)[\s\S]*<\/\1>|<([a-zA-Z0-9_\-:]+)[\s\S]*\/>/);
       xmlSourceUsed =
         (options?.xml as string) ||
         (options?.input?.xml as string) ||
+        (xmlInPrompt ? xmlInPrompt[0] : null) ||
         (step.input?.xml as string) ||
         (step.input?.content as string) ||
         (taskPrompt.toLowerCase().includes("review") ||
