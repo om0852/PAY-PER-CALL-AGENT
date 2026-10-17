@@ -1,9 +1,6 @@
 import mongoose from "mongoose";
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
-}
+// Lazy getter for MongoDB URI to prevent container crash at module evaluation time
+const getMongoUri = () => process.env.MONGODB_URI;
 
 interface MongooseCache {
   conn: typeof mongoose | null;
@@ -21,6 +18,13 @@ if (!cached) {
 }
 
 export async function connectToDatabase(): Promise<typeof mongoose> {
+  const uri = getMongoUri();
+  if (!uri) {
+    throw new Error(
+      "MONGODB_URI is not defined. Please add MONGODB_URI to your Vercel Environment Variables in Project Settings."
+    );
+  }
+
   if (cached!.conn) {
     return cached!.conn;
   }
@@ -28,9 +32,10 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
   if (!cached!.promise) {
     const opts = {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 8000,
     };
 
-    cached!.promise = mongoose.connect(MONGODB_URI as string, opts).then((mongooseInstance) => {
+    cached!.promise = mongoose.connect(uri, opts).then((mongooseInstance) => {
       return mongooseInstance;
     });
   }
