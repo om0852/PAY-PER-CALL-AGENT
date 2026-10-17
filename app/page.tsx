@@ -5197,27 +5197,29 @@ export default function Dashboard({ initialTab = "overview" }: { initialTab?: st
           )}
         </main>
 
-        {/* Global Footer */}
-        <footer className="w-full bg-[#f5f3f0] px-6 py-4 mt-auto border-t border-[#d4af37]/15">
-          <div className="w-full max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-[#4d4635]">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span>AgentBucket Studio v2.4.0</span>
-              <span>•</span>
-              <span className="font-mono text-[#735c00]">
-                Contract: 0x88c4...3b1f (Base Sepolia)
-              </span>
-              <span>•</span>
-              <span>Subgraphs Indexed: 100%</span>
-            </div>
+        {/* Global Footer (Hidden on Dispatcher to avoid overlap with chat interface) */}
+        {activeNavTab !== "dispatcher" && (
+          <footer className="w-full bg-[#f5f3f0] px-6 py-4 mt-auto border-t border-[#d4af37]/15">
+            <div className="w-full max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-[#4d4635]">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span>AgentBucket Studio v2.4.0</span>
+                <span>•</span>
+                <span className="font-mono text-[#735c00]">
+                  Contract: 0x88c4...3b1f (Base Sepolia)
+                </span>
+                <span>•</span>
+                <span>Subgraphs Indexed: 100%</span>
+              </div>
 
-            <div className="flex items-center gap-5 text-[11px] font-semibold text-[#5b5e66]">
-              <a href="#" className="hover:text-[#1b1c1a] transition-colors">Smart Contracts</a>
-              <a href="#" className="hover:text-[#1b1c1a] transition-colors">Agent RPC Protocol</a>
-              <a href="#" className="hover:text-[#1b1c1a] transition-colors">Terms &amp; SLAs</a>
-              <a href="#" className="hover:text-[#1b1c1a] transition-colors">System Status</a>
+              <div className="flex items-center gap-5 text-[11px] font-semibold text-[#5b5e66]">
+                <a href="#" className="hover:text-[#1b1c1a] transition-colors">Smart Contracts</a>
+                <a href="#" className="hover:text-[#1b1c1a] transition-colors">Agent RPC Protocol</a>
+                <a href="#" className="hover:text-[#1b1c1a] transition-colors">Terms &amp; SLAs</a>
+                <a href="#" className="hover:text-[#1b1c1a] transition-colors">System Status</a>
+              </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        )}
       </div>
 
       {/* Deposit Escrow Reserve USDC Modal */}
